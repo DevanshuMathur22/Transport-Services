@@ -14,6 +14,7 @@ export async function GET(
   req: Request,
   { params }: Props
 ) {
+
   try {
 
     //////////////////////////////////////////////////////
@@ -32,14 +33,27 @@ export async function GET(
 
     const booking =
       await prisma.booking.findUnique({
+
         where: {
           trackingId,
         },
 
         include: {
+
           tracking: {
+
             orderBy: {
               createdAt: "asc",
+            },
+          },
+
+          driver: {
+
+            select: {
+
+              name: true,
+
+              phone: true,
             },
           },
         },
@@ -87,7 +101,10 @@ export async function GET(
 
     const timeline =
       booking.tracking.map(
-       (item: any) => ({
+        (
+          item: any
+        ) => ({
+
           message:
             item.message,
 
@@ -107,7 +124,8 @@ export async function GET(
 
     return NextResponse.json({
 
-      id: booking.id,
+      id:
+        booking.id,
 
       trackingId:
         booking.trackingId,
@@ -136,21 +154,11 @@ export async function GET(
       timeline,
 
       //////////////////////////////////////////////////////
-      // DEMO DRIVER
+      // DRIVER
       //////////////////////////////////////////////////////
 
-      driver: {
-        name:
-          "Rahul Sharma",
-
-        rating: 4.8,
-
-        phone:
-          "+91 9876543210",
-
-        vehicleNumber:
-          "RJ14 AB 4589",
-      },
+      driver:
+        booking.driver || null,
     })
 
   } catch (error) {

@@ -86,3 +86,38 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+@layer base {
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased overflow-x-hidden;
+  }
+
+  ::selection {
+    @apply bg-violet-500 text-white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #050505;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      to bottom,
+      #8b5cf6,
+      #06b6d4
+    );
+    border-radius: 999px;
+  }
+}

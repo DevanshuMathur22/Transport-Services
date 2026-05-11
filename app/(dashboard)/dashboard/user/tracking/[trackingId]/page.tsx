@@ -223,17 +223,15 @@ export default function TrackingDetailsPage({
               </h3>
             </div>
 
-            <div>
-              <p className="text-sm text-slate-500">
-                Vehicle Number
-              </p>
+           <div>
+  <p className="text-sm text-slate-500">
+    Driver Status
+  </p>
 
-              <h3 className="font-semibold text-slate-900">
-
-                {data.driver.vehicleNumber}
-
-              </h3>
-            </div>
+  <h3 className="font-semibold text-green-600">
+    Available
+  </h3>
+</div>
           </div>
         </div>
       </div>
