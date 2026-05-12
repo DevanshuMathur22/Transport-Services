@@ -1,25 +1,157 @@
 // app/api/admin/drivers/route.ts
 
-import { prisma } from "@/lib/prisma"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
 
-import { NextResponse } from "next/server"
+import jwt from "jsonwebtoken"
 
-export async function GET() {
+import { prisma }
+from "@/lib/prisma"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// GET DRIVERS
+//////////////////////////////////////////////////////
+
+export async function GET(
+  req: NextRequest
+) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+
+        token,
+
+        process.env.JWT_SECRET
+
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // ADMIN CHECK
+    //////////////////////////////////////////////////////
+
+    const admin =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // ACCESS DENIED
+    //////////////////////////////////////////////////////
+
+    if (
+
+      !admin ||
+
+      admin.role !==
+        "admin"
+
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // GET DRIVERS
+    //////////////////////////////////////////////////////
 
     const drivers =
       await prisma.user.findMany({
 
         where: {
-          role: "driver",
+          role:
+            "driver",
         },
 
         orderBy: {
-          createdAt: "desc",
+          createdAt:
+            "desc",
         },
 
         select: {
+
           id: true,
 
           name: true,
@@ -27,6 +159,8 @@ export async function GET() {
           email: true,
 
           phone: true,
+
+          city: true,
 
           vehicleType: true,
 
@@ -38,9 +172,17 @@ export async function GET() {
 
           isOnline: true,
 
+          latitude: true,
+
+          longitude: true,
+
           createdAt: true,
         },
       })
+
+    //////////////////////////////////////////////////////
+    // RESPONSE
+    //////////////////////////////////////////////////////
 
     return NextResponse.json(
       drivers
@@ -48,7 +190,10 @@ export async function GET() {
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "GET DRIVERS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

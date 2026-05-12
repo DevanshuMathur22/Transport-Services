@@ -7,7 +7,18 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
 
 //////////////////////////////////////////////////////
 // GET SETTINGS
@@ -20,12 +31,35 @@ export async function GET(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -46,8 +80,11 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -63,12 +100,30 @@ export async function GET(
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          name: true,
+
+          email: true,
+        },
       })
 
+    //////////////////////////////////////////////////////
+    // ACCESS DENIED
+    //////////////////////////////////////////////////////
+
     if (
+
       !admin ||
+
       admin.role !==
         "admin"
+
     ) {
 
       return NextResponse.json(
@@ -115,7 +170,10 @@ export async function GET(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "GET SETTINGS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
@@ -140,12 +198,35 @@ export async function PUT(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -166,8 +247,11 @@ export async function PUT(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -183,12 +267,26 @@ export async function PUT(
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          role: true,
+        },
       })
 
+    //////////////////////////////////////////////////////
+    // ACCESS DENIED
+    //////////////////////////////////////////////////////
+
     if (
+
       !admin ||
+
       admin.role !==
         "admin"
+
     ) {
 
       return NextResponse.json(
@@ -268,7 +366,10 @@ export async function PUT(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "UPDATE SETTINGS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

@@ -7,7 +7,18 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
 
 //////////////////////////////////////////////////////
 // GET ADMIN PAYMENTS
@@ -20,12 +31,35 @@ export async function GET(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -46,14 +80,17 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
 
     //////////////////////////////////////////////////////
-    // CHECK ADMIN
+    // ADMIN CHECK
     //////////////////////////////////////////////////////
 
     const admin =
@@ -63,12 +100,26 @@ export async function GET(
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          role: true,
+        },
       })
 
+    //////////////////////////////////////////////////////
+    // ACCESS DENIED
+    //////////////////////////////////////////////////////
+
     if (
+
       !admin ||
+
       admin.role !==
         "admin"
+
     ) {
 
       return NextResponse.json(
@@ -138,7 +189,7 @@ export async function GET(
       })
 
     //////////////////////////////////////////////////////
-    // STATS
+    // TOTAL REVENUE
     //////////////////////////////////////////////////////
 
     const totalRevenue =
@@ -158,12 +209,20 @@ export async function GET(
           0
         )
 
+    //////////////////////////////////////////////////////
+    // SUCCESSFUL
+    //////////////////////////////////////////////////////
+
     const successful =
       payments.filter(
         (item) =>
           item.status ===
           "paid"
       ).length
+
+    //////////////////////////////////////////////////////
+    // PENDING
+    //////////////////////////////////////////////////////
 
     const pending =
       payments.filter(
@@ -172,11 +231,26 @@ export async function GET(
           "pending"
       ).length
 
+    //////////////////////////////////////////////////////
+    // REFUNDED
+    //////////////////////////////////////////////////////
+
     const refunded =
       payments.filter(
         (item) =>
           item.status ===
           "refunded"
+      ).length
+
+    //////////////////////////////////////////////////////
+    // FAILED
+    //////////////////////////////////////////////////////
+
+    const failed =
+      payments.filter(
+        (item) =>
+          item.status ===
+          "failed"
       ).length
 
     //////////////////////////////////////////////////////
@@ -196,12 +270,17 @@ export async function GET(
         pending,
 
         refunded,
+
+        failed,
       },
     })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "ADMIN PAYMENTS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
