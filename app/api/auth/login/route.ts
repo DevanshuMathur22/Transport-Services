@@ -1,23 +1,61 @@
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
 
 import bcrypt from "bcryptjs"
 
 import jwt from "jsonwebtoken"
 
+import { sendEmail }
+from "@/lib/send-email"
+
+import LoginEmail
+from "@/emails/login-email"
+
 export async function POST(
-  req: Request
+  req: NextRequest
 ) {
+
   try {
+
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
 
     const body =
       await req.json()
 
     const {
+
       email,
+
       password,
+
     } = body
+
+    //////////////////////////////////////////////////////
+    // VALIDATION
+    //////////////////////////////////////////////////////
+
+    if (
+      !email ||
+      !password
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Email and password are required",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // FIND USER
@@ -25,6 +63,7 @@ export async function POST(
 
     const user =
       await prisma.user.findUnique({
+
         where: {
           email,
         },
@@ -44,33 +83,12 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
-    // CHECK PASSWORD
-    //////////////////////////////////////////////////////
-
-    const isPasswordValid =
-      await bcrypt.compare(
-        password,
-        user.password
-      )
-
-    if (!isPasswordValid) {
-
-      return NextResponse.json(
-        {
-          error:
-            "Invalid credentials",
-        },
-        {
-          status: 400,
-        }
-      )
-    }
-
-    //////////////////////////////////////////////////////
     // BLOCKED USER
     //////////////////////////////////////////////////////
 
-    if (user.isBlocked) {
+    if (
+      user.isBlocked
+    ) {
 
       return NextResponse.json(
         {
@@ -84,21 +102,137 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
+    // CHECK PASSWORD
+    //////////////////////////////////////////////////////
+
+    const isPasswordValid =
+      await bcrypt.compare(
+        password,
+        user.password
+      )
+
+    //////////////////////////////////////////////////////
+    // INVALID PASSWORD
+    //////////////////////////////////////////////////////
+
+    if (
+      !isPasswordValid
+    ) {
+
+      //////////////////////////////////////////////////////
+      // LOGIN ATTEMPTS
+      //////////////////////////////////////////////////////
+
+      await prisma.user.update({
+
+        where: {
+          id:
+            user.id,
+        },
+
+        data: {
+
+          loginAttempts: {
+            increment: 1,
+          },
+        },
+      })
+
+      return NextResponse.json(
+        {
+          error:
+            "Invalid credentials",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // RESET LOGIN ATTEMPTS
+    //////////////////////////////////////////////////////
+
+    await prisma.user.update({
+
+      where: {
+        id:
+          user.id,
+      },
+
+      data: {
+
+        loginAttempts: 0,
+
+        lastLoginAt:
+          new Date(),
+      },
+    })
+
+    //////////////////////////////////////////////////////
     // GENERATE TOKEN
     //////////////////////////////////////////////////////
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        role: user.role,
+    const token =
+      jwt.sign(
+
+        {
+          id:
+            user.id,
+
+          role:
+            user.role,
+        },
+
+        process.env.JWT_SECRET!,
+
+        {
+          expiresIn:
+            "7d",
+        }
+      )
+
+    //////////////////////////////////////////////////////
+    // CREATE NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          user.id,
+
+        title:
+          "Login Successful",
+
+        message:
+          "Your account was logged in successfully.",
+
+        type:
+          "auth",
       },
+    })
 
-      process.env.JWT_SECRET!,
+    //////////////////////////////////////////////////////
+    // LOGIN EMAIL
+    //////////////////////////////////////////////////////
 
-      {
-        expiresIn: "7d",
-      }
-    )
+    await sendEmail({
+
+      to:
+        user.email,
+
+      subject:
+        "Login Successful",
+
+      react:
+        LoginEmail({
+
+          name:
+            user.name,
+        }),
+    })
 
     //////////////////////////////////////////////////////
     // REMOVE PASSWORD
@@ -115,11 +249,13 @@ export async function POST(
 
     const response =
       NextResponse.json({
+
         success: true,
 
         token,
 
-        user: safeUser,
+        user:
+          safeUser,
       })
 
     //////////////////////////////////////////////////////
@@ -127,21 +263,30 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     response.cookies.set(
+
       "token",
+
       token,
+
       {
+
         httpOnly: true,
 
         secure:
           process.env.NODE_ENV ===
           "production",
 
-        sameSite: "lax",
+        sameSite:
+          "lax",
 
-        path: "/",
+        path:
+          "/",
 
         maxAge:
-          60 * 60 * 24 * 7,
+          60 *
+          60 *
+          24 *
+          7,
       }
     )
 

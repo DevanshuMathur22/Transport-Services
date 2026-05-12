@@ -1,8 +1,12 @@
-// app/api/driver/accept-order/route.ts
-
 import { NextResponse } from "next/server"
 
 import { prisma } from "@/lib/prisma"
+
+import { sendEmail }
+from "@/lib/send-email"
+
+import BookingEmail
+from "@/emails/booking-email"
 
 export async function POST(
   req: Request
@@ -60,6 +64,16 @@ export async function POST(
           toCity: true,
 
           price: true,
+
+          user: {
+
+            select: {
+
+              name: true,
+
+              email: true,
+            },
+          },
         },
       })
 
@@ -171,6 +185,34 @@ export async function POST(
           "booking",
       },
     })
+
+    //////////////////////////////////////////////////////
+    // EMAIL
+    //////////////////////////////////////////////////////
+
+    if (
+      booking.user?.email
+    ) {
+
+      await sendEmail({
+
+        to:
+          booking.user.email,
+
+        subject:
+          "Driver Assigned",
+
+        react:
+          BookingEmail({
+
+            trackingId:
+              booking.trackingId,
+
+            customerName:
+              booking.user.name,
+          }),
+      })
+    }
 
     //////////////////////////////////////////////////////
     // RESPONSE

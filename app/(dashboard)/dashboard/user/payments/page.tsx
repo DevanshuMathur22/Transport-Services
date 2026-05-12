@@ -54,28 +54,60 @@ export default function PaymentsPage() {
   }, [])
 
   const fetchPayments =
-  async () => {
+    async () => {
 
-    try {
+      try {
 
-      const res =
-        await axios.get(
-          "/api/user/payments"
+        setLoading(true)
+
+        const res =
+          await axios.get(
+            "/api/user/payments"
+          )
+
+        //////////////////////////////////////////////////////
+        // SAFE ARRAY
+        //////////////////////////////////////////////////////
+
+        if (
+          Array.isArray(
+            res.data
+          )
+        ) {
+
+          setPayments(
+            res.data
+          )
+
+        } else if (
+          Array.isArray(
+            res.data?.payments
+          )
+        ) {
+
+          setPayments(
+            res.data.payments
+          )
+
+        } else {
+
+          setPayments([])
+        }
+
+      } catch (error) {
+
+        console.log(
+          "FETCH PAYMENTS ERROR:",
+          error
         )
 
-      setPayments(
-        res.data
-      )
+        setPayments([])
 
-    } catch (error) {
+      } finally {
 
-      console.log(error)
-
-    } finally {
-
-      setLoading(false)
+        setLoading(false)
+      }
     }
-  }
 
   //////////////////////////////////////////////////////
   // FILTERED DATA
@@ -84,22 +116,32 @@ export default function PaymentsPage() {
   const filteredPayments =
     useMemo(() => {
 
-      return payments.filter(
+      return (
+        payments || []
+      ).filter(
         (item) => {
 
-          const matchesSearch =
+          const transactionId =
             item.transactionId
               ?.toLowerCase()
-              .includes(
-                search.toLowerCase()
-              ) ||
+              || ""
 
+          const trackingId =
             item.booking
               ?.trackingId
               ?.toLowerCase()
-              .includes(
-                search.toLowerCase()
-              )
+              || ""
+
+          const searchText =
+            search.toLowerCase()
+
+          const matchesSearch =
+            transactionId.includes(
+              searchText
+            ) ||
+            trackingId.includes(
+              searchText
+            )
 
           const matchesFilter =
             filter === "all"
@@ -113,6 +155,7 @@ export default function PaymentsPage() {
           )
         }
       )
+
     }, [
       payments,
       search,
@@ -124,32 +167,42 @@ export default function PaymentsPage() {
   //////////////////////////////////////////////////////
 
   const totalSpent =
-    payments.reduce(
+    (
+      payments || []
+    ).reduce(
       (
         acc,
         item
       ) =>
         acc +
-        item.amount,
+        (
+          item.amount || 0
+        ),
       0
     )
 
   const successfulPayments =
-    payments.filter(
+    (
+      payments || []
+    ).filter(
       (item) =>
         item.status ===
-        "paid"
+        "completed"
     ).length
 
   const pendingPayments =
-    payments.filter(
+    (
+      payments || []
+    ).filter(
       (item) =>
         item.status ===
         "pending"
     ).length
 
   const refundedPayments =
-    payments.filter(
+    (
+      payments || []
+    ).filter(
       (item) =>
         item.status ===
         "refunded"
@@ -160,6 +213,7 @@ export default function PaymentsPage() {
   //////////////////////////////////////////////////////
 
   if (loading) {
+
     return (
       <div className="flex h-[60vh] items-center justify-center">
 
@@ -170,10 +224,15 @@ export default function PaymentsPage() {
           <p className="text-sm text-slate-500">
             Loading payments...
           </p>
+
         </div>
       </div>
     )
   }
+
+  //////////////////////////////////////////////////////
+  // UI
+  //////////////////////////////////////////////////////
 
   return (
     <div className="space-y-5">
@@ -204,6 +263,7 @@ export default function PaymentsPage() {
                 size={22}
                 className="text-green-400"
               />
+
             </div>
 
             <div>
@@ -215,6 +275,7 @@ export default function PaymentsPage() {
               <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-300">
                 Manage all transactions and invoices easily.
               </p>
+
             </div>
           </div>
 
@@ -225,6 +286,7 @@ export default function PaymentsPage() {
             <ArrowUpRight
               size={16}
             />
+
           </button>
         </div>
       </motion.div>
@@ -263,6 +325,7 @@ export default function PaymentsPage() {
                   size={22}
                   className="text-white"
                 />
+
               </div>
             </div>
           </div>
@@ -297,6 +360,7 @@ export default function PaymentsPage() {
                   size={22}
                   className="text-white"
                 />
+
               </div>
             </div>
           </div>
@@ -331,12 +395,13 @@ export default function PaymentsPage() {
                   size={22}
                   className="text-white"
                 />
+
               </div>
             </div>
           </div>
         </div>
 
-        {/* REFUND */}
+        {/* REFUNDED */}
 
         <div className="overflow-hidden rounded-[26px] bg-gradient-to-br from-pink-500 to-rose-500 p-[1px] shadow-sm">
 
@@ -365,6 +430,7 @@ export default function PaymentsPage() {
                   size={22}
                   className="text-white"
                 />
+
               </div>
             </div>
           </div>
@@ -401,7 +467,7 @@ export default function PaymentsPage() {
 
             {[
               "all",
-              "paid",
+              "completed",
               "pending",
               "refunded",
             ].map(
@@ -471,6 +537,7 @@ export default function PaymentsPage() {
                       <Receipt
                         size={20}
                       />
+
                     </div>
 
                     <div className="min-w-0">
@@ -488,7 +555,7 @@ export default function PaymentsPage() {
                         <div
                           className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
                             item.status ===
-                            "paid"
+                            "completed"
                               ? "bg-green-100 text-green-700"
                               : item.status ===
                                 "pending"
@@ -510,7 +577,7 @@ export default function PaymentsPage() {
                         {" "}
                         {
                           item.booking
-                            ?.trackingId
+                            ?.trackingId || "N/A"
                         }
 
                       </p>
@@ -564,9 +631,11 @@ export default function PaymentsPage() {
                       <h3 className="mt-1 text-sm font-semibold text-slate-900">
 
                         {
-                          new Date(
-                            item.createdAt
-                          ).toLocaleDateString()
+                          item.createdAt
+                            ? new Date(
+                                item.createdAt
+                              ).toLocaleDateString()
+                            : "N/A"
                         }
 
                       </h3>
@@ -577,49 +646,51 @@ export default function PaymentsPage() {
 
                     {/* PAY NOW */}
 
-                    {item.status ===
-                      "pending" && (
+                    {
+                      item.status ===
+                        "pending" && (
 
-                      <button
-                        onClick={async () => {
+                        <button
+                          onClick={async () => {
 
-                          try {
+                            try {
 
-                            await axios.post(
-                              "/api/payments",
-                              {
+                              await axios.post(
+                                "/api/payments",
+                                {
 
-                                userId:
-                                  item.userId,
+                                  userId:
+                                    item.userId,
 
-                                bookingId:
-                                  item.bookingId,
+                                  bookingId:
+                                    item.bookingId,
 
-                                amount:
-                                  item.amount,
+                                  amount:
+                                    item.amount,
 
-                                paymentMethod:
-                                  "upi",
+                                  paymentMethod:
+                                    "upi",
 
-                                status:
-                                  "paid",
-                              }
-                            )
+                                  status:
+                                    "completed",
+                                }
+                              )
 
-                            fetchPayments()
+                              fetchPayments()
 
-                          } catch (error) {
+                            } catch (error) {
 
-                            console.log(error)
-                          }
-                        }}
-                        className="flex h-11 items-center justify-center rounded-2xl bg-orange-500 px-5 text-sm font-medium text-white transition-all hover:bg-orange-600"
-                      >
+                              console.log(error)
+                            }
+                          }}
+                          className="flex h-11 items-center justify-center rounded-2xl bg-orange-500 px-5 text-sm font-medium text-white transition-all hover:bg-orange-600"
+                        >
 
-                        Pay Now
+                          Pay Now
 
-                      </button>
-                    )}
+                        </button>
+                      )
+                    }
 
                     {/* INVOICE */}
 

@@ -7,7 +7,8 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
 // PAYMENT STATS
@@ -53,6 +54,47 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // CHECK USER
+    //////////////////////////////////////////////////////
+
+    if (
+      !user ||
+      user.role !==
+        "user"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // USER PAYMENTS
     //////////////////////////////////////////////////////
 
@@ -63,6 +105,29 @@ export async function GET(
           userId:
             decoded.id,
         },
+
+        include: {
+
+          booking: {
+
+            select: {
+
+              trackingId: true,
+
+              fromCity: true,
+
+              toCity: true,
+
+              status: true,
+            },
+          },
+        },
+
+        orderBy: {
+
+          createdAt:
+            "desc",
+        },
       })
 
     //////////////////////////////////////////////////////
@@ -72,8 +137,8 @@ export async function GET(
     const totalSpent =
       payments.reduce(
         (
-          acc: number,
-          item: any
+          acc,
+          item
         ) =>
           acc +
           item.amount,
@@ -82,24 +147,46 @@ export async function GET(
 
     const successful =
       payments.filter(
-        (item: any) =>
+        (
+          item
+        ) =>
           item.status ===
           "paid"
       ).length
 
     const pending =
       payments.filter(
-        (item: any) =>
+        (
+          item
+        ) =>
           item.status ===
           "pending"
       ).length
 
     const refunded =
       payments.filter(
-        (item: any) =>
+        (
+          item
+        ) =>
           item.status ===
           "refunded"
       ).length
+
+    const failed =
+      payments.filter(
+        (
+          item
+        ) =>
+          item.status ===
+          "failed"
+      ).length
+
+    //////////////////////////////////////////////////////
+    // LAST PAYMENT
+    //////////////////////////////////////////////////////
+
+    const lastPayment =
+      payments[0] || null
 
     //////////////////////////////////////////////////////
     // RESPONSE
@@ -114,6 +201,15 @@ export async function GET(
       pending,
 
       refunded,
+
+      failed,
+
+      totalTransactions:
+        payments.length,
+
+      lastPayment,
+
+      payments,
     })
 
   } catch (error) {

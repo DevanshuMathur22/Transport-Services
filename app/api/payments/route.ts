@@ -1,17 +1,67 @@
 // app/api/payments/route.ts
 
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
 
-import { prisma } from "@/lib/prisma"
+import jwt from "jsonwebtoken"
+
+import { prisma }
+from "@/lib/prisma"
+
+import { sendEmail }
+from "@/lib/send-email"
+
+import BookingEmail
+from "@/emails/booking-email"
 
 //////////////////////////////////////////////////////
 // CREATE PAYMENT
 //////////////////////////////////////////////////////
 
 export async function POST(
-  req: Request
+  req: NextRequest
 ) {
+
   try {
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
 
     const body =
       await req.json()
@@ -21,13 +71,13 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     if (
-      !body.userId ||
       !body.bookingId
     ) {
+
       return NextResponse.json(
         {
           error:
-            "Missing userId or bookingId",
+            "Booking ID required",
         },
         {
           status: 400,
@@ -36,54 +86,142 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
-    // CREATE PAYMENT
+    // USER
     //////////////////////////////////////////////////////
 
-    const payment =
-      await prisma.payment.create({
+    const user =
+      await prisma.user.findUnique({
 
-        data: {
+        where: {
+          id:
+            decoded.id,
+        },
+      })
 
-          amount:
-            Number(
-              body.amount
-            ),
+    if (!user) {
 
-          paymentMethod:
-            body.paymentMethod,
+      return NextResponse.json(
+        {
+          error:
+            "User not found",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
 
-          transactionId:
-            `TXN${Date.now()}`,
+    //////////////////////////////////////////////////////
+    // BOOKING
+    //////////////////////////////////////////////////////
 
-          status:
-            body.status || "paid",
+    const booking =
+      await prisma.booking.findUnique({
 
-          //////////////////////////////////////////////////////
-          // CONNECT USER
-          //////////////////////////////////////////////////////
+        where: {
+          id:
+            body.bookingId,
+        },
+      })
 
-          user: {
-            connect: {
-              id:
-                body.userId,
-            },
-          },
+    if (!booking) {
 
-          //////////////////////////////////////////////////////
-          // CONNECT BOOKING
-          //////////////////////////////////////////////////////
+      return NextResponse.json(
+        {
+          error:
+            "Booking not found",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
 
-          booking: {
-            connect: {
-              id:
-                body.bookingId,
-            },
-          },
+    //////////////////////////////////////////////////////
+    // PAYMENT EXISTS
+    //////////////////////////////////////////////////////
+
+    const existingPayment =
+      await prisma.payment.findUnique({
+
+        where: {
+          bookingId:
+            booking.id,
         },
       })
 
     //////////////////////////////////////////////////////
-    // CREATE NOTIFICATION
+    // UPDATE PAYMENT
+    //////////////////////////////////////////////////////
+
+    let payment
+
+    if (existingPayment) {
+
+      payment =
+        await prisma.payment.update({
+
+          where: {
+            id:
+              existingPayment.id,
+          },
+
+          data: {
+
+            amount:
+              Number(
+                body.amount
+              ),
+
+            paymentMethod:
+              body.paymentMethod,
+
+            transactionId:
+              `TXN${Date.now()}`,
+
+            status:
+              body.status ||
+              "completed",
+          },
+        })
+
+    } else {
+
+      //////////////////////////////////////////////////////
+      // CREATE PAYMENT
+      //////////////////////////////////////////////////////
+
+      payment =
+        await prisma.payment.create({
+
+          data: {
+
+            userId:
+              decoded.id,
+
+            bookingId:
+              booking.id,
+
+            amount:
+              Number(
+                body.amount
+              ),
+
+            paymentMethod:
+              body.paymentMethod,
+
+            transactionId:
+              `TXN${Date.now()}`,
+
+            status:
+              body.status ||
+              "completed",
+          },
+        })
+    }
+
+    //////////////////////////////////////////////////////
+    // USER NOTIFICATION
     //////////////////////////////////////////////////////
 
     await prisma.notification.create({
@@ -91,7 +229,7 @@ export async function POST(
       data: {
 
         userId:
-          body.userId,
+          decoded.id,
 
         title:
           "Payment Successful",
@@ -102,6 +240,29 @@ export async function POST(
         type:
           "payment",
       },
+    })
+
+    //////////////////////////////////////////////////////
+    // EMAIL
+    //////////////////////////////////////////////////////
+
+    await sendEmail({
+
+      to:
+        user.email,
+
+      subject:
+        "Payment Successful",
+
+      react:
+        BookingEmail({
+
+          trackingId:
+            booking.trackingId,
+
+          customerName:
+            user.name,
+        }),
     })
 
     //////////////////////////////////////////////////////
@@ -117,7 +278,10 @@ export async function POST(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "PAYMENT_ERROR",
+      error
+    )
 
     return NextResponse.json(
       {

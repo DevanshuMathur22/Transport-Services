@@ -7,7 +7,8 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
 // GET PAYMENTS
@@ -53,24 +54,150 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
-    // USER PAYMENTS
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // CHECK USER
+    //////////////////////////////////////////////////////
+
+    if (
+      !user ||
+      user.role !==
+        "user"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // QUERY PARAMS
+    //////////////////////////////////////////////////////
+
+    const {
+      searchParams,
+    } = new URL(req.url)
+
+    const status =
+      searchParams.get(
+        "status"
+      )
+
+    const page =
+      Number(
+        searchParams.get(
+          "page"
+        )
+      ) || 1
+
+    const limit =
+      Number(
+        searchParams.get(
+          "limit"
+        )
+      ) || 10
+
+    //////////////////////////////////////////////////////
+    // PAYMENTS
     //////////////////////////////////////////////////////
 
     const payments =
       await prisma.payment.findMany({
 
         where: {
+
           userId:
             decoded.id,
+
+          ...(status && {
+            status:
+              status as any,
+          }),
         },
 
         include: {
-          booking: true,
+
+          //////////////////////////////////////////////////////
+          // BOOKING
+          //////////////////////////////////////////////////////
+
+          booking: {
+
+            include: {
+
+              driver: {
+
+                select: {
+
+                  id: true,
+
+                  name: true,
+
+                  phone: true,
+
+                  vehicleType: true,
+
+                  vehicleNumber: true,
+                },
+              },
+            },
+          },
         },
 
         orderBy: {
+
           createdAt:
             "desc",
+        },
+
+        skip:
+          (page - 1) *
+          limit,
+
+        take:
+          limit,
+      })
+
+    //////////////////////////////////////////////////////
+    // TOTAL
+    //////////////////////////////////////////////////////
+
+    const total =
+      await prisma.payment.count({
+
+        where: {
+
+          userId:
+            decoded.id,
+
+          ...(status && {
+            status:
+              status as any,
+          }),
         },
       })
 
@@ -78,9 +205,24 @@ export async function GET(
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      payments
-    )
+    return NextResponse.json({
+
+      payments,
+
+      pagination: {
+
+        total,
+
+        page,
+
+        limit,
+
+        totalPages:
+          Math.ceil(
+            total / limit
+          ),
+      },
+    })
 
   } catch (error) {
 

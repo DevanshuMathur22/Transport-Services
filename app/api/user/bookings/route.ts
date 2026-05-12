@@ -5,7 +5,8 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
 export async function GET(
   req: NextRequest
@@ -47,6 +48,47 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // CHECK USER
+    //////////////////////////////////////////////////////
+
+    if (
+      !user ||
+      user.role !==
+        "user"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // USER BOOKINGS
     //////////////////////////////////////////////////////
 
@@ -58,8 +100,54 @@ export async function GET(
             decoded.id,
         },
 
+        include: {
+
+          //////////////////////////////////////////////////////
+          // DRIVER
+          //////////////////////////////////////////////////////
+
+          driver: {
+
+            select: {
+
+              id: true,
+
+              name: true,
+
+              phone: true,
+
+              vehicleType: true,
+
+              vehicleNumber: true,
+            },
+          },
+
+          //////////////////////////////////////////////////////
+          // PAYMENT
+          //////////////////////////////////////////////////////
+
+          payment: true,
+
+          //////////////////////////////////////////////////////
+          // TRACKING
+          //////////////////////////////////////////////////////
+
+          tracking: {
+
+            orderBy: {
+
+              createdAt:
+                "desc",
+            },
+
+            take: 1,
+          },
+        },
+
         orderBy: {
-          createdAt: "desc",
+
+          createdAt:
+            "desc",
         },
 
         take: 10,

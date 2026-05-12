@@ -1,35 +1,84 @@
 // app/api/driver/stats/route.ts
 
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
 
-import { prisma } from "@/lib/prisma"
+import jwt from "jsonwebtoken"
 
-export async function GET() {
+import { prisma }
+from "@/lib/prisma"
+
+export async function GET(
+  req: NextRequest
+) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
 
     //////////////////////////////////////////////////////
     // DRIVER
     //////////////////////////////////////////////////////
 
     const driver =
-      await prisma.user.findFirst({
+      await prisma.user.findUnique({
 
         where: {
-          role:
-            "driver",
+          id:
+            decoded.id,
         },
       })
 
-    if (!driver) {
+    //////////////////////////////////////////////////////
+    // CHECK DRIVER
+    //////////////////////////////////////////////////////
+
+    if (
+      !driver ||
+      driver.role !==
+        "driver"
+    ) {
 
       return NextResponse.json(
         {
           error:
-            "Driver not found",
+            "Access denied",
         },
         {
-          status: 404,
+          status: 403,
         }
       )
     }
@@ -67,6 +116,7 @@ export async function GET() {
             driver.id,
 
           status: {
+
             in: [
               "accepted",
               "picked_up",
@@ -76,6 +126,7 @@ export async function GET() {
         },
 
         orderBy: {
+
           createdAt:
             "desc",
         },
@@ -117,7 +168,7 @@ export async function GET() {
         ) =>
           total +
           (
-            item.price || 0
+            item.driverEarning || 0
           ),
         0
       )

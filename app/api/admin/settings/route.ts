@@ -1,3 +1,5 @@
+// app/api/admin/settings/route.ts
+
 import {
   NextRequest,
   NextResponse,
@@ -5,11 +7,10 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma }
-from "@/lib/prisma"
+import { prisma } from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
-// GET DOCUMENTS
+// GET SETTINGS
 //////////////////////////////////////////////////////
 
 export async function GET(
@@ -40,7 +41,7 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
-    // VERIFY TOKEN
+    // VERIFY
     //////////////////////////////////////////////////////
 
     const decoded =
@@ -52,41 +53,22 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
-    // DRIVER
+    // ADMIN CHECK
     //////////////////////////////////////////////////////
 
-    const driver =
+    const admin =
       await prisma.user.findUnique({
 
         where: {
           id:
             decoded.id,
         },
-
-        select: {
-
-          id: true,
-
-          role: true,
-
-          licenseUrl: true,
-
-          rcUrl: true,
-
-          aadhaarUrl: true,
-
-          insuranceUrl: true,
-        },
       })
 
-    //////////////////////////////////////////////////////
-    // CHECK DRIVER
-    //////////////////////////////////////////////////////
-
     if (
-      !driver ||
-      driver.role !==
-        "driver"
+      !admin ||
+      admin.role !==
+        "admin"
     ) {
 
       return NextResponse.json(
@@ -104,9 +86,32 @@ export async function GET(
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      driver
-    )
+    return NextResponse.json({
+
+      siteName:
+        "Porter Clone",
+
+      supportEmail:
+        "support@porterclone.com",
+
+      adminName:
+        admin.name || "",
+
+      adminEmail:
+        admin.email || "",
+
+      maintenanceMode:
+        false,
+
+      notifications:
+        true,
+
+      allowRegistrations:
+        true,
+
+      requireDriverApproval:
+        true,
+    })
 
   } catch (error) {
 
@@ -115,7 +120,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Failed to fetch documents",
+          "Failed to fetch settings",
       },
       {
         status: 500,
@@ -125,7 +130,7 @@ export async function GET(
 }
 
 //////////////////////////////////////////////////////
-// UPDATE DOCUMENTS
+// UPDATE SETTINGS
 //////////////////////////////////////////////////////
 
 export async function PUT(
@@ -168,17 +173,10 @@ export async function PUT(
       }
 
     //////////////////////////////////////////////////////
-    // BODY
+    // ADMIN CHECK
     //////////////////////////////////////////////////////
 
-    const body =
-      await req.json()
-
-    //////////////////////////////////////////////////////
-    // DRIVER
-    //////////////////////////////////////////////////////
-
-    const driver =
+    const admin =
       await prisma.user.findUnique({
 
         where: {
@@ -187,14 +185,10 @@ export async function PUT(
         },
       })
 
-    //////////////////////////////////////////////////////
-    // CHECK DRIVER
-    //////////////////////////////////////////////////////
-
     if (
-      !driver ||
-      driver.role !==
-        "driver"
+      !admin ||
+      admin.role !==
+        "admin"
     ) {
 
       return NextResponse.json(
@@ -209,88 +203,32 @@ export async function PUT(
     }
 
     //////////////////////////////////////////////////////
-    // UPDATE DRIVER
+    // BODY
     //////////////////////////////////////////////////////
 
-    const updatedDriver =
-      await prisma.user.update({
-
-        where: {
-          id:
-            driver.id,
-        },
-
-        data: {
-
-          licenseUrl:
-            body.licenseUrl,
-
-          rcUrl:
-            body.rcUrl,
-
-          aadhaarUrl:
-            body.aadhaarUrl,
-
-          insuranceUrl:
-            body.insuranceUrl,
-        },
-      })
+    const body =
+      await req.json()
 
     //////////////////////////////////////////////////////
-    // DRIVER NOTIFICATION
+    // UPDATE ADMIN
     //////////////////////////////////////////////////////
 
-    await prisma.notification.create({
+    await prisma.user.update({
+
+      where: {
+        id:
+          admin.id,
+      },
 
       data: {
 
-        userId:
-          driver.id,
+        name:
+          body.adminName,
 
-        title:
-          "Documents Updated",
-
-        message:
-          "Your driver documents were updated successfully.",
-
-        type:
-          "driver",
+        email:
+          body.adminEmail,
       },
     })
-
-    //////////////////////////////////////////////////////
-    // ADMIN NOTIFICATION
-    //////////////////////////////////////////////////////
-
-    const admin =
-      await prisma.user.findFirst({
-
-        where: {
-          role:
-            "admin",
-        },
-      })
-
-    if (admin) {
-
-      await prisma.notification.create({
-
-        data: {
-
-          userId:
-            admin.id,
-
-          title:
-            "Driver Documents Submitted",
-
-          message:
-            `${driver.name} uploaded driver documents.`,
-
-          type:
-            "admin",
-        },
-      })
-    }
 
     //////////////////////////////////////////////////////
     // RESPONSE
@@ -300,8 +238,32 @@ export async function PUT(
 
       success: true,
 
-      driver:
-        updatedDriver,
+      settings: {
+
+        siteName:
+          body.siteName,
+
+        supportEmail:
+          body.supportEmail,
+
+        adminName:
+          body.adminName,
+
+        adminEmail:
+          body.adminEmail,
+
+        maintenanceMode:
+          body.maintenanceMode,
+
+        notifications:
+          body.notifications,
+
+        allowRegistrations:
+          body.allowRegistrations,
+
+        requireDriverApproval:
+          body.requireDriverApproval,
+      },
     })
 
   } catch (error) {
@@ -311,7 +273,7 @@ export async function PUT(
     return NextResponse.json(
       {
         error:
-          "Failed to update documents",
+          "Failed to update settings",
       },
       {
         status: 500,

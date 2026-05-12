@@ -1,32 +1,75 @@
 // app/api/driver/profile/route.ts
 
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
 
-import { prisma } from "@/lib/prisma"
+import jwt from "jsonwebtoken"
+
+import { prisma }
+from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
 // GET DRIVER PROFILE
 //////////////////////////////////////////////////////
 
-export async function GET() {
+export async function GET(
+  req: NextRequest
+) {
 
   try {
 
     //////////////////////////////////////////////////////
-    // TEMP DRIVER
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // DRIVER
     //////////////////////////////////////////////////////
 
     const driver =
-      await prisma.user.findFirst({
+      await prisma.user.findUnique({
 
         where: {
-          role:
-            "driver",
+          id:
+            decoded.id,
         },
 
         select: {
 
           id: true,
+
+          role: true,
 
           name: true,
 
@@ -43,18 +86,22 @@ export async function GET() {
       })
 
     //////////////////////////////////////////////////////
-    // NO DRIVER
+    // CHECK DRIVER
     //////////////////////////////////////////////////////
 
-    if (!driver) {
+    if (
+      !driver ||
+      driver.role !==
+        "driver"
+    ) {
 
       return NextResponse.json(
         {
           error:
-            "Driver not found",
+            "Access denied",
         },
         {
-          status: 404,
+          status: 403,
         }
       )
     }
@@ -88,46 +135,87 @@ export async function GET() {
 //////////////////////////////////////////////////////
 
 export async function PUT(
-  req: Request
+  req: NextRequest
 ) {
 
   try {
 
-    const body =
-      await req.json()
-
     //////////////////////////////////////////////////////
-    // FIND DRIVER
+    // TOKEN
     //////////////////////////////////////////////////////
 
-    const driver =
-      await prisma.user.findFirst({
+    const token =
+      req.cookies.get("token")
+        ?.value
 
-        where: {
-          role:
-            "driver",
-        },
-      })
-
-    //////////////////////////////////////////////////////
-    // NO DRIVER
-    //////////////////////////////////////////////////////
-
-    if (!driver) {
+    if (!token) {
 
       return NextResponse.json(
         {
           error:
-            "Driver not found",
+            "Unauthorized",
         },
         {
-          status: 404,
+          status: 401,
         }
       )
     }
 
     //////////////////////////////////////////////////////
-    // UPDATE
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
+
+    const body =
+      await req.json()
+
+    //////////////////////////////////////////////////////
+    // DRIVER
+    //////////////////////////////////////////////////////
+
+    const driver =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // CHECK DRIVER
+    //////////////////////////////////////////////////////
+
+    if (
+      !driver ||
+      driver.role !==
+        "driver"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // UPDATE DRIVER
     //////////////////////////////////////////////////////
 
     const updatedDriver =
@@ -156,6 +244,62 @@ export async function PUT(
             body.vehicleNumber,
         },
       })
+
+    //////////////////////////////////////////////////////
+    // DRIVER NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          driver.id,
+
+        title:
+          "Profile Updated",
+
+        message:
+          "Your driver profile was updated successfully.",
+
+        type:
+          "driver",
+      },
+    })
+
+    //////////////////////////////////////////////////////
+    // ADMIN NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    const admin =
+      await prisma.user.findFirst({
+
+        where: {
+          role:
+            "admin",
+        },
+      })
+
+    if (admin) {
+
+      await prisma.notification.create({
+
+        data: {
+
+          userId:
+            admin.id,
+
+          title:
+            "Driver Profile Updated",
+
+          message:
+            `${updatedDriver.name} updated driver profile details.`,
+
+          type:
+            "admin",
+        },
+      })
+    }
 
     //////////////////////////////////////////////////////
     // RESPONSE

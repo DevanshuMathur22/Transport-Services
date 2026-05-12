@@ -1,34 +1,83 @@
-// app/api/driver/deliveries/route.ts
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
 
-import { NextResponse } from "next/server"
+import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
-export async function GET() {
+export async function GET(
+  req: NextRequest
+) {
 
   try {
 
     //////////////////////////////////////////////////////
-    // TEMP DRIVER
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // DRIVER
     //////////////////////////////////////////////////////
 
     const driver =
-      await prisma.user.findFirst({
+      await prisma.user.findUnique({
 
         where: {
-          role:
-            "driver",
+          id:
+            decoded.id,
         },
       })
 
     //////////////////////////////////////////////////////
-    // NO DRIVER
+    // CHECK DRIVER
     //////////////////////////////////////////////////////
 
-    if (!driver) {
+    if (
+      !driver ||
+      driver.role !==
+        "driver"
+    ) {
 
       return NextResponse.json(
-        []
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
       )
     }
 
@@ -54,7 +103,23 @@ export async function GET() {
           },
         },
 
+        include: {
+
+          user: {
+
+            select: {
+
+              name: true,
+
+              phone: true,
+
+              email: true,
+            },
+          },
+        },
+
         orderBy: {
+
           updatedAt:
             "desc",
         },

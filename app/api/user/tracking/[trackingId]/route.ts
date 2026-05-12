@@ -7,7 +7,8 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
 interface Props {
   params: Promise<{
@@ -60,6 +61,47 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // CHECK USER
+    //////////////////////////////////////////////////////
+
+    if (
+      !user ||
+      user.role !==
+        "user"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // PARAMS
     //////////////////////////////////////////////////////
 
@@ -84,14 +126,60 @@ export async function GET(
 
         include: {
 
+          //////////////////////////////////////////////////////
+          // TRACKING
+          //////////////////////////////////////////////////////
+
           tracking: {
+
             orderBy: {
+
               createdAt:
                 "asc",
             },
           },
 
-          driver: true,
+          //////////////////////////////////////////////////////
+          // DRIVER
+          //////////////////////////////////////////////////////
+
+          driver: {
+
+            select: {
+
+              id: true,
+
+              name: true,
+
+              phone: true,
+
+              vehicleType: true,
+
+              vehicleNumber: true,
+
+              latitude: true,
+
+              longitude: true,
+            },
+          },
+
+          //////////////////////////////////////////////////////
+          // PAYMENT
+          //////////////////////////////////////////////////////
+
+          payment: {
+
+            select: {
+
+              amount: true,
+
+              status: true,
+
+              paymentMethod: true,
+
+              transactionId: true,
+            },
+          },
         },
       })
 
@@ -127,8 +215,17 @@ export async function GET(
       toCity:
         booking.toCity,
 
+      pickupAddress:
+        booking.pickupAddress,
+
+      deliveryAddress:
+        booking.deliveryAddress,
+
       vehicleType:
         booking.vehicleType,
+
+      packageType:
+        booking.packageType,
 
       status:
         booking.status,
@@ -136,26 +233,106 @@ export async function GET(
       eta:
         booking.estimatedTime,
 
+      distance:
+        booking.distance,
+
+      weight:
+        booking.weight,
+
+      price:
+        booking.price,
+
+      pickupDate:
+        booking.pickupDate,
+
+      pickupTime:
+        booking.pickupTime,
+
+      //////////////////////////////////////////////////////
+      // DRIVER
+      //////////////////////////////////////////////////////
+
       driver: {
 
         name:
           booking.driver
-            ?.name || "Not Assigned",
+            ?.name ||
+          "Not Assigned",
 
         phone:
           booking.driver
-            ?.phone || "N/A",
+            ?.phone ||
+          "N/A",
+
+        vehicleType:
+          booking.driver
+            ?.vehicleType ||
+          "N/A",
+
+        vehicleNumber:
+          booking.driver
+            ?.vehicleNumber ||
+          "N/A",
+
+        latitude:
+          booking.driver
+            ?.latitude ||
+          null,
+
+        longitude:
+          booking.driver
+            ?.longitude ||
+          null,
       },
+
+      //////////////////////////////////////////////////////
+      // PAYMENT
+      //////////////////////////////////////////////////////
+
+      payment:
+        booking.payment
+          ? {
+
+              amount:
+                booking.payment
+                  .amount,
+
+              status:
+                booking.payment
+                  .status,
+
+              paymentMethod:
+                booking.payment
+                  .paymentMethod,
+
+              transactionId:
+                booking.payment
+                  .transactionId,
+            }
+          : null,
+
+      //////////////////////////////////////////////////////
+      // TIMELINE
+      //////////////////////////////////////////////////////
 
       timeline:
         booking.tracking.map(
           (item) => ({
+
+            id:
+              item.id,
 
             message:
               item.message,
 
             location:
               item.location,
+
+            latitude:
+              item.latitude,
+
+            longitude:
+              item.longitude,
 
             time:
               new Date(

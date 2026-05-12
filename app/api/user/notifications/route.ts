@@ -5,7 +5,8 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
 // GET NOTIFICATIONS
@@ -51,6 +52,33 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
+    // QUERY
+    //////////////////////////////////////////////////////
+
+    const {
+      searchParams,
+    } = new URL(req.url)
+
+    const page =
+      Number(
+        searchParams.get(
+          "page"
+        )
+      ) || 1
+
+    const limit =
+      Number(
+        searchParams.get(
+          "limit"
+        )
+      ) || 20
+
+    const type =
+      searchParams.get(
+        "type"
+      )
+
+    //////////////////////////////////////////////////////
     // FETCH NOTIFICATIONS
     //////////////////////////////////////////////////////
 
@@ -58,25 +86,84 @@ export async function GET(
       await prisma.notification.findMany({
 
         where: {
+
           userId:
             decoded.id,
+
+          ...(type && {
+            type,
+          }),
         },
 
         orderBy: {
+
           createdAt:
             "desc",
         },
 
-        take: 20,
+        skip:
+          (page - 1) *
+          limit,
+
+        take:
+          limit,
+      })
+
+    //////////////////////////////////////////////////////
+    // UNREAD COUNT
+    //////////////////////////////////////////////////////
+
+    const unreadCount =
+      await prisma.notification.count({
+
+        where: {
+
+          userId:
+            decoded.id,
+
+          isRead:
+            false,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // TOTAL
+    //////////////////////////////////////////////////////
+
+    const total =
+      await prisma.notification.count({
+
+        where: {
+
+          userId:
+            decoded.id,
+        },
       })
 
     //////////////////////////////////////////////////////
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      notifications
-    )
+    return NextResponse.json({
+
+      notifications,
+
+      unreadCount,
+
+      pagination: {
+
+        total,
+
+        page,
+
+        limit,
+
+        totalPages:
+          Math.ceil(
+            total / limit
+          ),
+      },
+    })
 
   } catch (error) {
 

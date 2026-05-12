@@ -11,6 +11,10 @@ export async function POST(
 ) {
   try {
 
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
+
     const body =
       await req.json()
 
@@ -43,6 +47,18 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
+    // CLEAN VALUES
+    //////////////////////////////////////////////////////
+
+    const cleanEmail =
+      email
+        .trim()
+        .toLowerCase()
+
+    const cleanName =
+      name.trim()
+
+    //////////////////////////////////////////////////////
     // CHECK EXISTING USER
     //////////////////////////////////////////////////////
 
@@ -50,7 +66,8 @@ export async function POST(
       await prisma.user.findUnique({
 
         where: {
-          email,
+          email:
+            cleanEmail,
         },
       })
 
@@ -78,14 +95,15 @@ export async function POST(
       )
 
     //////////////////////////////////////////////////////
-    // VALID ROLES
+    // VALID ROLE
     //////////////////////////////////////////////////////
-const validRole =
-  role === "admin"
-    ? "admin"
-    : role === "driver"
-    ? "driver"
-    : "user"
+
+    const validRole =
+      role === "admin"
+        ? "admin"
+        : role === "driver"
+        ? "driver"
+        : "user"
 
     //////////////////////////////////////////////////////
     // CREATE USER
@@ -96,9 +114,11 @@ const validRole =
 
         data: {
 
-          name,
+          name:
+            cleanName,
 
-          email,
+          email:
+            cleanEmail,
 
           password:
             hashedPassword,
@@ -107,6 +127,21 @@ const validRole =
 
           role:
             validRole,
+        },
+
+        select: {
+
+          id: true,
+
+          name: true,
+
+          email: true,
+
+          phone: true,
+
+          role: true,
+
+          createdAt: true,
         },
       })
 
@@ -127,7 +162,10 @@ const validRole =
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "REGISTER_ERROR",
+      error
+    )
 
     return NextResponse.json(
       {

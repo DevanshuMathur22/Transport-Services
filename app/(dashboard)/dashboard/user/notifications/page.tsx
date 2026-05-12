@@ -1,3 +1,5 @@
+// app/dashboard/user/notifications/page.tsx
+
 "use client"
 
 import axios from "axios"
@@ -19,6 +21,14 @@ import {
   useState,
 } from "react"
 
+interface NotificationType {
+  id: string
+  type: string
+  title: string
+  message: string
+  time: string
+}
+
 export default function NotificationsPage() {
 
   //////////////////////////////////////////////////////
@@ -26,7 +36,7 @@ export default function NotificationsPage() {
   //////////////////////////////////////////////////////
 
   const [notifications, setNotifications] =
-    useState<any[]>([])
+    useState<NotificationType[]>([])
 
   const [loading, setLoading] =
     useState(true)
@@ -46,18 +56,50 @@ export default function NotificationsPage() {
 
       try {
 
+        setLoading(true)
+
         const res =
           await axios.get(
             "/api/user/notifications"
           )
 
-        setNotifications(
-          res.data
-        )
+        //////////////////////////////////////////////////////
+        // SAFE ARRAY CHECK
+        //////////////////////////////////////////////////////
+
+        if (
+          Array.isArray(
+            res.data
+          )
+        ) {
+
+          setNotifications(
+            res.data
+          )
+
+        } else if (
+          Array.isArray(
+            res.data?.notifications
+          )
+        ) {
+
+          setNotifications(
+            res.data.notifications
+          )
+
+        } else {
+
+          setNotifications([])
+        }
 
       } catch (error) {
 
-        console.log(error)
+        console.log(
+          "FETCH NOTIFICATIONS ERROR:",
+          error
+        )
+
+        setNotifications([])
 
       } finally {
 
@@ -75,6 +117,7 @@ export default function NotificationsPage() {
       switch (type) {
 
         case "booking":
+
           return {
             icon: Package,
             color:
@@ -82,6 +125,7 @@ export default function NotificationsPage() {
           }
 
         case "payment":
+
           return {
             icon: CreditCard,
             color:
@@ -89,6 +133,7 @@ export default function NotificationsPage() {
           }
 
         case "tracking":
+
           return {
             icon: Truck,
             color:
@@ -96,6 +141,7 @@ export default function NotificationsPage() {
           }
 
         default:
+
           return {
             icon: CheckCircle2,
             color:
@@ -120,12 +166,18 @@ export default function NotificationsPage() {
           <p className="text-sm text-slate-500">
             Loading notifications...
           </p>
+
         </div>
       </div>
     )
   }
 
+  //////////////////////////////////////////////////////
+  // UI
+  //////////////////////////////////////////////////////
+
   return (
+
     <div className="space-y-5">
 
       {/* HERO */}
@@ -152,6 +204,7 @@ export default function NotificationsPage() {
               size={26}
               className="text-green-400"
             />
+
           </div>
 
           <div>
@@ -163,115 +216,121 @@ export default function NotificationsPage() {
             <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-300">
               Stay updated with your bookings, payments and shipment activity.
             </p>
+
           </div>
         </div>
       </motion.div>
 
       {/* EMPTY */}
 
-      {notifications.length === 0 && (
+      {
+        notifications.length === 0 && (
 
-        <div className="flex h-[40vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white text-center">
+          <div className="flex h-[40vh] flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white text-center">
 
-          <Bell
-            size={42}
-            className="text-slate-300"
-          />
+            <Bell
+              size={42}
+              className="text-slate-300"
+            />
 
-          <h2 className="mt-4 text-lg font-semibold text-slate-900">
+            <h2 className="mt-4 text-lg font-semibold text-slate-900">
 
-            No Notifications
+              No Notifications
 
-          </h2>
+            </h2>
 
-          <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-slate-500">
 
-            Notifications will appear here.
+              Notifications will appear here.
 
-          </p>
-        </div>
-      )}
+            </p>
+          </div>
+        )
+      }
 
       {/* LIST */}
 
       <div className="space-y-4">
 
-        {notifications.map(
-          (
-            item,
-            index
-          ) => {
+        {
+          (notifications || []).map(
+            (
+              item,
+              index
+            ) => {
 
-            const config =
-              getIcon(
-                item.type
-              )
+              const config =
+                getIcon(
+                  item.type
+                )
 
-            const Icon =
-              config.icon
+              const Icon =
+                config.icon
 
-            return (
-              <motion.div
-                key={item.id}
-                initial={{
-                  opacity: 0,
-                  y: 20,
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                }}
-                transition={{
-                  delay:
-                    index * 0.05,
-                }}
-                className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition-all hover:shadow-md"
-              >
+              return (
 
-                <div className="flex gap-4">
+                <motion.div
+                  key={item.id}
+                  initial={{
+                    opacity: 0,
+                    y: 20,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                  }}
+                  transition={{
+                    delay:
+                      index * 0.05,
+                  }}
+                  className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm transition-all hover:shadow-md"
+                >
 
-                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl ${config.color}`}>
+                  <div className="flex gap-4">
 
-                    <Icon
-                      size={24}
-                    />
+                    <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl ${config.color}`}>
 
-                  </div>
+                      <Icon
+                        size={24}
+                      />
 
-                  <div className="min-w-0 flex-1">
+                    </div>
 
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
 
-                      <h2 className="text-base font-semibold text-slate-900">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
+                        <h2 className="text-base font-semibold text-slate-900">
+
+                          {
+                            item.title
+                          }
+
+                        </h2>
+
+                        <p className="text-xs text-slate-400">
+
+                          {
+                            item.time || "Just now"
+                          }
+
+                        </p>
+                      </div>
+
+                      <p className="mt-2 text-sm leading-relaxed text-slate-500">
 
                         {
-                          item.title
-                        }
-
-                      </h2>
-
-                      <p className="text-xs text-slate-400">
-
-                        {
-                          item.time
+                          item.message
                         }
 
                       </p>
                     </div>
-
-                    <p className="mt-2 text-sm leading-relaxed text-slate-500">
-
-                      {
-                        item.message
-                      }
-
-                    </p>
                   </div>
-                </div>
-              </motion.div>
-            )
-          }
-        )}
+                </motion.div>
+              )
+            }
+          )
+        }
       </div>
     </div>
   )

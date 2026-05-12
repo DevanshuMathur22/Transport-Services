@@ -1,8 +1,14 @@
 // app/api/driver/orders/[id]/route.ts
 
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
 
-import { prisma } from "@/lib/prisma"
+import jwt from "jsonwebtoken"
+
+import { prisma }
+from "@/lib/prisma"
 
 interface Props {
   params: Promise<{
@@ -11,11 +17,44 @@ interface Props {
 }
 
 export async function GET(
-  req: Request,
+  req: NextRequest,
   { params }: Props
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
 
     //////////////////////////////////////////////////////
     // PARAMS
@@ -83,6 +122,26 @@ export async function GET(
         },
         {
           status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // ACCESS CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      order.driverId !==
+      decoded.id
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
         }
       )
     }

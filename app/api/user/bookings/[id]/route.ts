@@ -92,9 +92,28 @@ export async function GET(
           user: {
 
             select: {
+
               id: true,
+
               name: true,
+
               email: true,
+            },
+          },
+
+          driver: {
+
+            select: {
+
+              id: true,
+
+              name: true,
+
+              phone: true,
+
+              vehicleType: true,
+
+              vehicleNumber: true,
             },
           },
         },
@@ -242,6 +261,7 @@ export async function PUT(
     if (
       body.distance > 100
     ) {
+
       estimatedTime =
         "1 Day"
     }
@@ -249,6 +269,7 @@ export async function PUT(
     if (
       body.distance > 300
     ) {
+
       estimatedTime =
         "2 Days"
     }
@@ -345,6 +366,55 @@ export async function PUT(
 
           message:
             `Shipment status updated to ${body.status}`,
+        },
+      })
+    }
+
+    //////////////////////////////////////////////////////
+    // USER NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          decoded.id,
+
+        title:
+          "Booking Updated",
+
+        message:
+          `Booking ${updatedBooking.trackingId} updated successfully.`,
+
+        type:
+          "booking",
+      },
+    })
+
+    //////////////////////////////////////////////////////
+    // DRIVER NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    if (
+      updatedBooking.driverId
+    ) {
+
+      await prisma.notification.create({
+
+        data: {
+
+          userId:
+            updatedBooking.driverId,
+
+          title:
+            "Booking Updated",
+
+          message:
+            `Shipment ${updatedBooking.trackingId} was updated by customer.`,
+
+          type:
+            "driver",
         },
       })
     }
@@ -462,6 +532,26 @@ export async function DELETE(
     }
 
     //////////////////////////////////////////////////////
+    // PREVENT DELETE
+    //////////////////////////////////////////////////////
+
+    if (
+      existingBooking.status ===
+      "delivered"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Delivered bookings cannot be deleted",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // DELETE TRACKING
     //////////////////////////////////////////////////////
 
@@ -493,6 +583,55 @@ export async function DELETE(
         id,
       },
     })
+
+    //////////////////////////////////////////////////////
+    // USER NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          decoded.id,
+
+        title:
+          "Booking Cancelled",
+
+        message:
+          `Booking ${existingBooking.trackingId} cancelled successfully.`,
+
+        type:
+          "booking",
+      },
+    })
+
+    //////////////////////////////////////////////////////
+    // DRIVER NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    if (
+      existingBooking.driverId
+    ) {
+
+      await prisma.notification.create({
+
+        data: {
+
+          userId:
+            existingBooking.driverId,
+
+          title:
+            "Booking Cancelled",
+
+          message:
+            `Shipment ${existingBooking.trackingId} was cancelled by customer.`,
+
+          type:
+            "driver",
+        },
+      })
+    }
 
     //////////////////////////////////////////////////////
     // RESPONSE

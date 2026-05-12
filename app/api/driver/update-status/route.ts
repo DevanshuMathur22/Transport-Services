@@ -1,12 +1,61 @@
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
 
-import { prisma } from "@/lib/prisma"
+import jwt from "jsonwebtoken"
+
+import { prisma }
+from "@/lib/prisma"
+
+import { sendEmail }
+from "@/lib/send-email"
+
+import BookingEmail
+from "@/emails/booking-email"
 
 export async function POST(
-  req: Request
+  req: NextRequest
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
 
     const body =
       await req.json()
@@ -32,6 +81,40 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
+    // FIND DRIVER
+    //////////////////////////////////////////////////////
+
+    const driver =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // CHECK DRIVER
+    //////////////////////////////////////////////////////
+
+    if (
+      !driver ||
+      driver.role !==
+        "driver"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // FIND BOOKING
     //////////////////////////////////////////////////////
 
@@ -41,6 +124,21 @@ export async function POST(
         where: {
           id:
             body.bookingId,
+        },
+
+        include: {
+
+          user: {
+
+            select: {
+
+              id: true,
+
+              name: true,
+
+              email: true,
+            },
+          },
         },
       })
 
@@ -53,6 +151,26 @@ export async function POST(
         },
         {
           status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // ACCESS CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      booking.driverId !==
+      driver.id
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "This booking is not assigned to you",
+        },
+        {
+          status: 403,
         }
       )
     }
@@ -179,6 +297,56 @@ export async function POST(
           "tracking",
       },
     })
+
+    //////////////////////////////////////////////////////
+    // DRIVER NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          driver.id,
+
+        title:
+          "Delivery Status Updated",
+
+        message:
+          trackingMessage,
+
+        type:
+          "driver",
+      },
+    })
+
+    //////////////////////////////////////////////////////
+    // EMAIL
+    //////////////////////////////////////////////////////
+
+    if (
+      booking.user?.email
+    ) {
+
+      await sendEmail({
+
+        to:
+          booking.user.email,
+
+        subject:
+          "Shipment Status Updated",
+
+        react:
+          BookingEmail({
+
+            trackingId:
+              booking.trackingId,
+
+            customerName:
+              booking.user.name,
+          }),
+      })
+    }
 
     //////////////////////////////////////////////////////
     // RESPONSE

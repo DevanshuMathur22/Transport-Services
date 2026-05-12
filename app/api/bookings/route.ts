@@ -7,6 +7,12 @@ import jwt from "jsonwebtoken"
 
 import { prisma } from "@/lib/prisma"
 
+import { sendEmail }
+from "@/lib/send-email"
+
+import BookingEmail
+from "@/emails/booking-email"
+
 //////////////////////////////////////////////////////
 // CREATE BOOKING
 //////////////////////////////////////////////////////
@@ -83,6 +89,32 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+      })
+
+    if (!user) {
+
+      return NextResponse.json(
+        {
+          error:
+            "User not found",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // ETA
     //////////////////////////////////////////////////////
 
@@ -111,10 +143,6 @@ export async function POST(
       await prisma.booking.create({
 
         data: {
-
-          //////////////////////////////////////////////////////
-          // TOKEN USER ID
-          //////////////////////////////////////////////////////
 
           userId:
             decoded.id,
@@ -158,22 +186,14 @@ export async function POST(
           // OPTIONAL
           //////////////////////////////////////////////////////
 
-          // @ts-ignore
-
           packageType:
             body.packageType,
-
-          // @ts-ignore
 
           pickupDate:
             body.pickupDate,
 
-          // @ts-ignore
-
           pickupTime:
             body.pickupTime,
-
-          // @ts-ignore
 
           instructions:
             body.instructions,
@@ -219,6 +239,29 @@ export async function POST(
         type:
           "booking",
       },
+    })
+
+    //////////////////////////////////////////////////////
+    // EMAIL
+    //////////////////////////////////////////////////////
+
+    await sendEmail({
+
+      to:
+        user.email,
+
+      subject:
+        "Booking Confirmed",
+
+      react:
+        BookingEmail({
+
+          trackingId:
+            booking.trackingId,
+
+          customerName:
+            user.name,
+        }),
     })
 
     //////////////////////////////////////////////////////

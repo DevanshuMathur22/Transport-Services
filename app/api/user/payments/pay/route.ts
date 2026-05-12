@@ -7,7 +7,14 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
+
+import { sendEmail }
+from "@/lib/send-email"
+
+import BookingEmail
+from "@/emails/booking-email"
 
 //////////////////////////////////////////////////////
 // PAY NOW
@@ -60,9 +67,13 @@ export async function POST(
       await req.json()
 
     const {
+
       bookingId,
+
       amount,
+
       paymentMethod,
+
     } = body
 
     //////////////////////////////////////////////////////
@@ -70,9 +81,13 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     if (
+
       !bookingId ||
+
       !amount ||
+
       !paymentMethod
+
     ) {
 
       return NextResponse.json(
@@ -82,6 +97,32 @@ export async function POST(
         },
         {
           status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+      })
+
+    if (!user) {
+
+      return NextResponse.json(
+        {
+          error:
+            "User not found",
+        },
+        {
+          status: 404,
         }
       )
     }
@@ -117,49 +158,143 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
-    // CREATE PAYMENT
+    // PAYMENT EXISTS
+    //////////////////////////////////////////////////////
+
+    const existingPayment =
+      await prisma.payment.findUnique({
+
+        where: {
+          bookingId,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // UPSERT PAYMENT
     //////////////////////////////////////////////////////
 
     const payment =
-  await prisma.payment.upsert({
+      await prisma.payment.upsert({
 
-    where: {
-      bookingId,
-    },
+        where: {
+          bookingId,
+        },
 
-    update: {
+        update: {
 
-      amount:
-        Number(amount),
+          amount:
+            Number(amount),
 
-      paymentMethod,
+          paymentMethod,
 
-      status:
-        "paid",
+          status:
+            "paid",
 
-      transactionId:
-        `TXN${Date.now()}`,
-    },
+          transactionId:
+            `TXN${Date.now()}`,
+        },
 
-    create: {
+        create: {
 
-      userId:
-        decoded.id,
+          userId:
+            decoded.id,
 
-      bookingId,
+          bookingId,
 
-      amount:
-        Number(amount),
+          amount:
+            Number(amount),
 
-      paymentMethod,
+          paymentMethod,
 
-      status:
-        "paid",
+          status:
+            "paid",
 
-      transactionId:
-        `TXN${Date.now()}`,
-    },
-  })
+          transactionId:
+            `TXN${Date.now()}`,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // USER NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          decoded.id,
+
+        title:
+          existingPayment
+            ? "Payment Updated"
+            : "Payment Successful",
+
+        message:
+          `₹${payment.amount} payment completed successfully.`,
+
+        type:
+          "payment",
+      },
+    })
+
+    //////////////////////////////////////////////////////
+    // ADMIN NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    const admin =
+      await prisma.user.findFirst({
+
+        where: {
+          role:
+            "admin",
+        },
+      })
+
+    if (admin) {
+
+      await prisma.notification.create({
+
+        data: {
+
+          userId:
+            admin.id,
+
+          title:
+            "New Payment Received",
+
+          message:
+            `${user.name} paid ₹${payment.amount} for shipment ${booking.trackingId}.`,
+
+          type:
+            "admin",
+        },
+      })
+    }
+
+    //////////////////////////////////////////////////////
+    // EMAIL
+    //////////////////////////////////////////////////////
+
+    await sendEmail({
+
+      to:
+        user.email,
+
+      subject:
+        "Payment Successful",
+
+      react:
+        BookingEmail({
+
+          trackingId:
+            booking.trackingId,
+
+          customerName:
+            user.name,
+        }),
+    })
+
     //////////////////////////////////////////////////////
     // RESPONSE
     //////////////////////////////////////////////////////
