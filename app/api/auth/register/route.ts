@@ -1,15 +1,61 @@
 // app/api/auth/register/route.ts
 
-import { prisma } from "@/lib/prisma"
-
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
 
 import bcrypt from "bcryptjs"
 
+import jwt from "jsonwebtoken"
+
+import { prisma }
+from "@/lib/prisma"
+
+import { sendEmail }
+from "@/lib/send-email"
+
+import LoginEmail
+from "@/emails/login-email"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// REGISTER
+//////////////////////////////////////////////////////
+
 export async function POST(
-  req: Request
+  req: NextRequest
 ) {
+
   try {
+
+    //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // BODY
@@ -19,11 +65,17 @@ export async function POST(
       await req.json()
 
     const {
+
       name,
+
       email,
+
       password,
+
       phone,
+
       role,
+
     } = body
 
     //////////////////////////////////////////////////////
@@ -31,10 +83,15 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     if (
+
       !name ||
+
       !email ||
+
       !password
+
     ) {
+
       return NextResponse.json(
         {
           error:
@@ -71,6 +128,10 @@ export async function POST(
         },
       })
 
+    //////////////////////////////////////////////////////
+    // USER EXISTS
+    //////////////////////////////////////////////////////
+
     if (existingUser) {
 
       return NextResponse.json(
@@ -90,8 +151,11 @@ export async function POST(
 
     const hashedPassword =
       await bcrypt.hash(
+
         password,
+
         10
+
       )
 
     //////////////////////////////////////////////////////
@@ -99,10 +163,13 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     const validRole =
+
       role === "admin"
         ? "admin"
+
         : role === "driver"
         ? "driver"
+
         : "user"
 
     //////////////////////////////////////////////////////
@@ -127,6 +194,16 @@ export async function POST(
 
           role:
             validRole,
+
+          //////////////////////////////////////////////////////
+          // DRIVER APPROVAL
+          //////////////////////////////////////////////////////
+
+          isDriverApproved:
+            validRole ===
+            "driver"
+              ? false
+              : true,
         },
 
         select: {
@@ -146,24 +223,133 @@ export async function POST(
       })
 
     //////////////////////////////////////////////////////
+    // GENERATE TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      jwt.sign(
+
+        {
+          id:
+            user.id,
+
+          role:
+            user.role,
+        },
+
+        process.env.JWT_SECRET,
+
+        {
+          expiresIn:
+            "7d",
+        }
+      )
+
+    //////////////////////////////////////////////////////
+    // CREATE NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          user.id,
+
+        title:
+          "Account Created",
+
+        message:
+          "Your account has been created successfully.",
+
+        type:
+          "auth",
+      },
+    })
+
+    //////////////////////////////////////////////////////
+    // SEND EMAIL
+    //////////////////////////////////////////////////////
+
+    await sendEmail({
+
+      to:
+        user.email,
+
+      subject:
+        "Welcome to Porter Clone",
+
+      react:
+        LoginEmail({
+
+          name:
+            user.name,
+        }),
+    })
+
+    //////////////////////////////////////////////////////
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      {
-        success: true,
+    const response =
+      NextResponse.json(
 
-        user,
-      },
+        {
+          success: true,
+
+          token,
+
+          user,
+        },
+
+        {
+          status: 201,
+        }
+      )
+
+    //////////////////////////////////////////////////////
+    // COOKIE
+    //////////////////////////////////////////////////////
+
+    response.cookies.set(
+
+      "token",
+
+      token,
+
       {
-        status: 201,
+
+        httpOnly:
+          true,
+
+        secure:
+          process.env.NODE_ENV ===
+          "production",
+
+        sameSite:
+          "lax",
+
+        path:
+          "/",
+
+        maxAge:
+          60 *
+          60 *
+          24 *
+          7,
       }
     )
+
+    //////////////////////////////////////////////////////
+    // RESPONSE
+    //////////////////////////////////////////////////////
+
+    return response
 
   } catch (error) {
 
     console.log(
-      "REGISTER_ERROR",
+      "REGISTER ERROR:",
       error
     )
 

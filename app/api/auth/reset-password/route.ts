@@ -1,3 +1,5 @@
+// app/api/auth/reset-password/route.ts
+
 import bcrypt from "bcryptjs"
 
 import {
@@ -8,23 +10,83 @@ import {
 import { prisma }
 from "@/lib/prisma"
 
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// RESET PASSWORD
+//////////////////////////////////////////////////////
+
 export async function POST(
   req: NextRequest
 ) {
 
   try {
 
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
+
     const body =
       await req.json()
+
+    const {
+
+      email,
+
+      password,
+
+      otp,
+
+    } = body
+
+    //////////////////////////////////////////////////////
+    // VALIDATION
+    //////////////////////////////////////////////////////
+
+    if (
+
+      !email ||
+
+      !password ||
+
+      !otp
+
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Email, password and OTP are required",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // FIND USER
+    //////////////////////////////////////////////////////
 
     const user =
       await prisma.user.findUnique({
 
         where: {
-          email:
-            body.email,
+          email,
         },
       })
+
+    //////////////////////////////////////////////////////
+    // USER NOT FOUND
+    //////////////////////////////////////////////////////
 
     if (!user) {
 
@@ -40,17 +102,67 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
-    // HASH
+    // OTP CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !user.otp ||
+
+      user.otp !== otp
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Invalid OTP",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // OTP EXPIRY CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+
+      !user.otpExpiry ||
+
+      new Date() >
+      new Date(
+        user.otpExpiry
+      )
+
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "OTP expired",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // HASH PASSWORD
     //////////////////////////////////////////////////////
 
     const hashedPassword =
       await bcrypt.hash(
-        body.password,
+
+        password,
+
         10
+
       )
 
     //////////////////////////////////////////////////////
-    // UPDATE
+    // UPDATE USER
     //////////////////////////////////////////////////////
 
     await prisma.user.update({
@@ -65,12 +177,42 @@ export async function POST(
         password:
           hashedPassword,
 
-        otp: null,
+        otp:
+          null,
 
         otpExpiry:
           null,
+
+        loginAttempts:
+          0,
       },
     })
+
+    //////////////////////////////////////////////////////
+    // NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          user.id,
+
+        title:
+          "Password Reset Successful",
+
+        message:
+          "Your password has been reset successfully.",
+
+        type:
+          "security",
+      },
+    })
+
+    //////////////////////////////////////////////////////
+    // RESPONSE
+    //////////////////////////////////////////////////////
 
     return NextResponse.json({
 
@@ -82,7 +224,10 @@ export async function POST(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "RESET PASSWORD ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

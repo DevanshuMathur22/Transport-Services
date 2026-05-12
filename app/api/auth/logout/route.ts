@@ -1,3 +1,5 @@
+// app/api/auth/logout/route.ts
+
 import {
   NextRequest,
   NextResponse,
@@ -9,6 +11,16 @@ import { prisma }
 from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
 // LOGOUT
 //////////////////////////////////////////////////////
 
@@ -17,6 +29,25 @@ export async function POST(
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // TOKEN
@@ -36,38 +67,63 @@ export async function POST(
 
         const decoded =
           jwt.verify(
+
             token,
-            process.env.JWT_SECRET!
+
+            process.env.JWT_SECRET
+
           ) as {
             id: string
           }
 
         //////////////////////////////////////////////////////
+        // FIND USER
+        //////////////////////////////////////////////////////
+
+        const user =
+          await prisma.user.findUnique({
+
+            where: {
+              id:
+                decoded.id,
+            },
+
+            select: {
+
+              id: true,
+            },
+          })
+
+        //////////////////////////////////////////////////////
         // CREATE NOTIFICATION
         //////////////////////////////////////////////////////
 
-        await prisma.notification.create({
+        if (user) {
 
-          data: {
+          await prisma.notification.create({
 
-            userId:
-              decoded.id,
+            data: {
 
-            title:
-              "Logged Out",
+              userId:
+                decoded.id,
 
-            message:
-              "Your account was logged out successfully.",
+              title:
+                "Logged Out",
 
-            type:
-              "auth",
-          },
-        })
+              message:
+                "Your account was logged out successfully.",
+
+              type:
+                "auth",
+            },
+          })
+        }
 
       } catch (error) {
 
         console.log(
-          "Token verification failed"
+          "TOKEN VERIFY ERROR:",
+          error
         )
       }
     }
@@ -115,11 +171,18 @@ export async function POST(
       }
     )
 
+    //////////////////////////////////////////////////////
+    // RESPONSE
+    //////////////////////////////////////////////////////
+
     return response
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "LOGOUT ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

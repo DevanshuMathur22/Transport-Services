@@ -1,3 +1,5 @@
+// app/api/bookings/route.ts
+
 import {
   NextRequest,
   NextResponse,
@@ -5,13 +7,24 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
 import { sendEmail }
 from "@/lib/send-email"
 
 import BookingEmail
 from "@/emails/booking-email"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
 
 //////////////////////////////////////////////////////
 // CREATE BOOKING
@@ -24,12 +37,35 @@ export async function POST(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -50,8 +86,11 @@ export async function POST(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -68,13 +107,21 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     if (
+
       !body.fromCity ||
+
       !body.toCity ||
+
       !body.pickupAddress ||
+
       !body.deliveryAddress ||
+
       !body.vehicleType ||
+
       !body.weight ||
+
       !body.distance
+
     ) {
 
       return NextResponse.json(
@@ -101,6 +148,10 @@ export async function POST(
         },
       })
 
+    //////////////////////////////////////////////////////
+    // USER NOT FOUND
+    //////////////////////////////////////////////////////
+
     if (!user) {
 
       return NextResponse.json(
@@ -115,6 +166,25 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Your account is blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // ETA
     //////////////////////////////////////////////////////
 
@@ -122,15 +192,21 @@ export async function POST(
       "2 Hours"
 
     if (
-      body.distance > 100
+      Number(
+        body.distance
+      ) > 100
     ) {
+
       estimatedTime =
         "1 Day"
     }
 
     if (
-      body.distance > 300
+      Number(
+        body.distance
+      ) > 300
     ) {
+
       estimatedTime =
         "2 Days"
     }
@@ -177,26 +253,29 @@ export async function POST(
 
           price:
             Number(
-              body.price
+              body.price || 0
             ),
 
           estimatedTime,
+
+          status:
+            "pending",
 
           //////////////////////////////////////////////////////
           // OPTIONAL
           //////////////////////////////////////////////////////
 
           packageType:
-            body.packageType,
+            body.packageType || null,
 
           pickupDate:
-            body.pickupDate,
+            body.pickupDate || null,
 
           pickupTime:
-            body.pickupTime,
+            body.pickupTime || null,
 
           instructions:
-            body.instructions,
+            body.instructions || null,
         },
       })
 
@@ -269,6 +348,7 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     return NextResponse.json(
+
       {
         success: true,
 
@@ -277,6 +357,7 @@ export async function POST(
 
         booking,
       },
+
       {
         status: 201,
       }
@@ -284,7 +365,10 @@ export async function POST(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "BOOKING ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

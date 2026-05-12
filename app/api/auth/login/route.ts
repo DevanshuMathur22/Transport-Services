@@ -1,3 +1,5 @@
+// app/api/auth/login/route.ts
+
 import { prisma }
 from "@/lib/prisma"
 
@@ -16,11 +18,44 @@ from "@/lib/send-email"
 import LoginEmail
 from "@/emails/login-email"
 
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// LOGIN
+//////////////////////////////////////////////////////
+
 export async function POST(
   req: NextRequest
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // BODY
@@ -69,6 +104,10 @@ export async function POST(
         },
       })
 
+    //////////////////////////////////////////////////////
+    // USER NOT FOUND
+    //////////////////////////////////////////////////////
+
     if (!user) {
 
       return NextResponse.json(
@@ -107,8 +146,11 @@ export async function POST(
 
     const isPasswordValid =
       await bcrypt.compare(
+
         password,
+
         user.password
+
       )
 
     //////////////////////////////////////////////////////
@@ -162,7 +204,8 @@ export async function POST(
 
       data: {
 
-        loginAttempts: 0,
+        loginAttempts:
+          0,
 
         lastLoginAt:
           new Date(),
@@ -184,7 +227,7 @@ export async function POST(
             user.role,
         },
 
-        process.env.JWT_SECRET!,
+        process.env.JWT_SECRET,
 
         {
           expiresIn:
@@ -270,7 +313,8 @@ export async function POST(
 
       {
 
-        httpOnly: true,
+        httpOnly:
+          true,
 
         secure:
           process.env.NODE_ENV ===
@@ -290,11 +334,18 @@ export async function POST(
       }
     )
 
+    //////////////////////////////////////////////////////
+    // RESPONSE
+    //////////////////////////////////////////////////////
+
     return response
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "LOGIN ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
