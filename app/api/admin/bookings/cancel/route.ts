@@ -7,7 +7,18 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
 
 //////////////////////////////////////////////////////
 // CANCEL BOOKING
@@ -20,12 +31,35 @@ export async function POST(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -46,8 +80,11 @@ export async function POST(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -57,17 +94,32 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     const admin =
-      await prisma.user.findFirst({
+      await prisma.user.findUnique({
 
         where: {
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          role: true,
+        },
       })
 
+    //////////////////////////////////////////////////////
+    // ACCESS DENIED
+    //////////////////////////////////////////////////////
+
     if (
+
       !admin ||
-      admin.role !== "admin"
+
+      admin.role !==
+        "admin"
+
     ) {
 
       return NextResponse.json(
@@ -91,6 +143,10 @@ export async function POST(
     const {
       bookingId,
     } = body
+
+    //////////////////////////////////////////////////////
+    // VALIDATION
+    //////////////////////////////////////////////////////
 
     if (!bookingId) {
 
@@ -116,7 +172,24 @@ export async function POST(
           id:
             bookingId,
         },
+
+        select: {
+
+          id: true,
+
+          userId: true,
+
+          trackingId: true,
+
+          toCity: true,
+
+          status: true,
+        },
       })
+
+    //////////////////////////////////////////////////////
+    // NOT FOUND
+    //////////////////////////////////////////////////////
 
     if (!booking) {
 
@@ -127,6 +200,26 @@ export async function POST(
         },
         {
           status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // ALREADY CANCELLED
+    //////////////////////////////////////////////////////
+
+    if (
+      booking.status ===
+      "cancelled"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Booking already cancelled",
+        },
+        {
+          status: 400,
         }
       )
     }
@@ -170,7 +263,7 @@ export async function POST(
     })
 
     //////////////////////////////////////////////////////
-    // NOTIFICATION
+    // USER NOTIFICATION
     //////////////////////////////////////////////////////
 
     await prisma.notification.create({
@@ -205,7 +298,10 @@ export async function POST(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "CANCEL BOOKING ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
