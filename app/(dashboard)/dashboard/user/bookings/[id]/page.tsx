@@ -41,23 +41,29 @@ export default function BookingDetailsPage() {
     }
   }, [params?.id])
 
-  const fetchBooking =
-    async () => {
-      try {
-        const res =
-          await axios.get(
-            `/api/bookings/${params.id}`
-          )
+ const fetchBooking =
+  async () => {
 
-        setBooking(
-          res.data
+    try {
+
+      const res =
+        await axios.get(
+          `/api/user/bookings/${params.id}`
         )
-      } catch (error) {
-        console.log(error)
-      } finally {
-        setLoading(false)
-      }
+
+      setBooking(
+        res.data
+      )
+
+    } catch (error) {
+
+      console.log(error)
+
+    } finally {
+
+      setLoading(false)
     }
+  }
 
   //////////////////////////////////////////////////////
   // LOADING

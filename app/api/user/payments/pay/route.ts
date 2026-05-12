@@ -1,4 +1,4 @@
-// app/api/user/payment-stats/route.ts
+// app/api/user/payments/pay/route.ts
 
 import {
   NextRequest,
@@ -10,10 +10,10 @@ import jwt from "jsonwebtoken"
 import { prisma } from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
-// PAYMENT STATS
+// PAY NOW
 //////////////////////////////////////////////////////
 
-export async function GET(
+export async function POST(
   req: NextRequest
 ) {
 
@@ -53,67 +53,122 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
-    // USER PAYMENTS
+    // BODY
     //////////////////////////////////////////////////////
 
-    const payments =
-      await prisma.payment.findMany({
+    const body =
+      await req.json()
+
+    const {
+      bookingId,
+      amount,
+      paymentMethod,
+    } = body
+
+    //////////////////////////////////////////////////////
+    // VALIDATION
+    //////////////////////////////////////////////////////
+
+    if (
+      !bookingId ||
+      !amount ||
+      !paymentMethod
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Missing fields",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // CHECK BOOKING
+    //////////////////////////////////////////////////////
+
+    const booking =
+      await prisma.booking.findFirst({
 
         where: {
+
+          id:
+            bookingId,
+
           userId:
             decoded.id,
         },
       })
 
-    //////////////////////////////////////////////////////
-    // STATS
-    //////////////////////////////////////////////////////
+    if (!booking) {
 
-    const totalSpent =
-      payments.reduce(
-        (
-          acc: number,
-          item: any
-        ) =>
-          acc +
-          item.amount,
-        0
+      return NextResponse.json(
+        {
+          error:
+            "Booking not found",
+        },
+        {
+          status: 404,
+        }
       )
+    }
 
-    const successful =
-      payments.filter(
-        (item: any) =>
-          item.status ===
-          "paid"
-      ).length
+    //////////////////////////////////////////////////////
+    // CREATE PAYMENT
+    //////////////////////////////////////////////////////
 
-    const pending =
-      payments.filter(
-        (item: any) =>
-          item.status ===
-          "pending"
-      ).length
+    const payment =
+  await prisma.payment.upsert({
 
-    const refunded =
-      payments.filter(
-        (item: any) =>
-          item.status ===
-          "refunded"
-      ).length
+    where: {
+      bookingId,
+    },
 
+    update: {
+
+      amount:
+        Number(amount),
+
+      paymentMethod,
+
+      status:
+        "paid",
+
+      transactionId:
+        `TXN${Date.now()}`,
+    },
+
+    create: {
+
+      userId:
+        decoded.id,
+
+      bookingId,
+
+      amount:
+        Number(amount),
+
+      paymentMethod,
+
+      status:
+        "paid",
+
+      transactionId:
+        `TXN${Date.now()}`,
+    },
+  })
     //////////////////////////////////////////////////////
     // RESPONSE
     //////////////////////////////////////////////////////
 
     return NextResponse.json({
 
-      totalSpent,
+      success: true,
 
-      successful,
-
-      pending,
-
-      refunded,
+      payment,
     })
 
   } catch (error) {
@@ -123,7 +178,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Failed to fetch payment stats",
+          "Payment failed",
       },
       {
         status: 500,

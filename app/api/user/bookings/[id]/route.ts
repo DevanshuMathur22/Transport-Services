@@ -1,19 +1,63 @@
-import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
+
+import jwt from "jsonwebtoken"
 
 //////////////////////////////////////////////////////
 // GET SINGLE BOOKING
 //////////////////////////////////////////////////////
 
 export async function GET(
-  req: Request,
+  req: NextRequest,
   context: {
     params: Promise<{
       id: string
     }>
   }
 ) {
+
   try {
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // PARAMS
+    //////////////////////////////////////////////////////
 
     const { id } =
       await context.params
@@ -23,21 +67,30 @@ export async function GET(
     //////////////////////////////////////////////////////
 
     const booking =
-      await prisma.booking.findUnique({
+      await prisma.booking.findFirst({
+
         where: {
+
           id,
+
+          userId:
+            decoded.id,
         },
 
         include: {
+
           tracking: {
+
             orderBy: {
-              createdAt: "asc",
+              createdAt:
+                "asc",
             },
           },
 
           payment: true,
 
           user: {
+
             select: {
               id: true,
               name: true,
@@ -93,23 +146,94 @@ export async function GET(
 //////////////////////////////////////////////////////
 
 export async function PUT(
-  req: Request,
+  req: NextRequest,
   context: {
     params: Promise<{
       id: string
     }>
   }
 ) {
+
   try {
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // PARAMS
+    //////////////////////////////////////////////////////
 
     const { id } =
       await context.params
+
+    //////////////////////////////////////////////////////
+    // FIND BOOKING
+    //////////////////////////////////////////////////////
+
+    const existingBooking =
+      await prisma.booking.findFirst({
+
+        where: {
+
+          id,
+
+          userId:
+            decoded.id,
+        },
+      })
+
+    if (!existingBooking) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Booking not found",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
 
     const body =
       await req.json()
 
     //////////////////////////////////////////////////////
-    // ETA UPDATE
+    // ETA
     //////////////////////////////////////////////////////
 
     let estimatedTime =
@@ -135,6 +259,7 @@ export async function PUT(
 
     const updatedBooking =
       await prisma.booking.update({
+
         where: {
           id,
         },
@@ -177,7 +302,7 @@ export async function PUT(
           estimatedTime,
 
           //////////////////////////////////////////////////////
-          // OPTIONAL EXTRA FIELDS
+          // OPTIONAL
           //////////////////////////////////////////////////////
 
           // @ts-ignore
@@ -209,6 +334,7 @@ export async function PUT(
     if (body.status) {
 
       await prisma.tracking.create({
+
         data: {
 
           bookingId:
@@ -227,14 +353,13 @@ export async function PUT(
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      {
-        success: true,
+    return NextResponse.json({
 
-        booking:
-          updatedBooking,
-      }
-    )
+      success: true,
+
+      booking:
+        updatedBooking,
+    })
 
   } catch (error) {
 
@@ -257,23 +382,91 @@ export async function PUT(
 //////////////////////////////////////////////////////
 
 export async function DELETE(
-  req: Request,
+  req: NextRequest,
   context: {
     params: Promise<{
       id: string
     }>
   }
 ) {
+
   try {
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // PARAMS
+    //////////////////////////////////////////////////////
 
     const { id } =
       await context.params
+
+    //////////////////////////////////////////////////////
+    // FIND BOOKING
+    //////////////////////////////////////////////////////
+
+    const existingBooking =
+      await prisma.booking.findFirst({
+
+        where: {
+
+          id,
+
+          userId:
+            decoded.id,
+        },
+      })
+
+    if (!existingBooking) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Booking not found",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // DELETE TRACKING
     //////////////////////////////////////////////////////
 
     await prisma.tracking.deleteMany({
+
       where: {
         bookingId: id,
       },
@@ -284,6 +477,7 @@ export async function DELETE(
     //////////////////////////////////////////////////////
 
     await prisma.payment.deleteMany({
+
       where: {
         bookingId: id,
       },
@@ -294,6 +488,7 @@ export async function DELETE(
     //////////////////////////////////////////////////////
 
     await prisma.booking.delete({
+
       where: {
         id,
       },
@@ -304,6 +499,7 @@ export async function DELETE(
     //////////////////////////////////////////////////////
 
     return NextResponse.json({
+
       success: true,
 
       message:

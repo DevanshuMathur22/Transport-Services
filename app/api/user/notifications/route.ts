@@ -1,79 +1,78 @@
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
+
+import jwt from "jsonwebtoken"
+
+import { prisma } from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
 // GET NOTIFICATIONS
 //////////////////////////////////////////////////////
 
-export async function GET() {
+export async function GET(
+  req: NextRequest
+) {
 
   try {
 
-    const notifications = [
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
 
-      {
-        id: 1,
+    const token =
+      req.cookies.get("token")
+        ?.value
 
-        title:
-          "Booking Created",
+    if (!token) {
 
-        message:
-          "Your shipment booking has been created successfully.",
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
 
-        time:
-          "2 min ago",
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
 
-        type:
-          "booking",
-      },
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
 
-      {
-        id: 2,
+    //////////////////////////////////////////////////////
+    // FETCH NOTIFICATIONS
+    //////////////////////////////////////////////////////
 
-        title:
-          "Payment Successful",
+    const notifications =
+      await prisma.notification.findMany({
 
-        message:
-          "Your payment of ₹1,250 was completed successfully.",
+        where: {
+          userId:
+            decoded.id,
+        },
 
-        time:
-          "10 min ago",
+        orderBy: {
+          createdAt:
+            "desc",
+        },
 
-        type:
-          "payment",
-      },
+        take: 20,
+      })
 
-      {
-        id: 3,
-
-        title:
-          "Shipment Picked Up",
-
-        message:
-          "Driver has picked up your shipment from Jaipur.",
-
-        time:
-          "30 min ago",
-
-        type:
-          "tracking",
-      },
-
-      {
-        id: 4,
-
-        title:
-          "Order Delivered",
-
-        message:
-          "Your shipment has been delivered successfully.",
-
-        time:
-          "1 hour ago",
-
-        type:
-          "delivery",
-      },
-    ]
+    //////////////////////////////////////////////////////
+    // RESPONSE
+    //////////////////////////////////////////////////////
 
     return NextResponse.json(
       notifications

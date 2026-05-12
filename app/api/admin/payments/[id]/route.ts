@@ -1,5 +1,3 @@
-// app/api/user/payment-stats/route.ts
-
 import {
   NextRequest,
   NextResponse,
@@ -10,14 +8,22 @@ import jwt from "jsonwebtoken"
 import { prisma } from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
-// PAYMENT STATS
+// UPDATE PAYMENT
 //////////////////////////////////////////////////////
 
-export async function GET(
-  req: NextRequest
+export async function PUT(
+  req: NextRequest,
+  context: {
+    params: Promise<{
+      id: string
+    }>
+  }
 ) {
 
   try {
+
+    const { id } =
+      await context.params
 
     //////////////////////////////////////////////////////
     // TOKEN
@@ -41,7 +47,7 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
-    // VERIFY TOKEN
+    // VERIFY
     //////////////////////////////////////////////////////
 
     const decoded =
@@ -53,53 +59,59 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
-    // USER PAYMENTS
+    // ADMIN CHECK
     //////////////////////////////////////////////////////
 
-    const payments =
-      await prisma.payment.findMany({
+    const admin =
+      await prisma.user.findUnique({
 
         where: {
-          userId:
+          id:
             decoded.id,
         },
       })
 
-    //////////////////////////////////////////////////////
-    // STATS
-    //////////////////////////////////////////////////////
+    if (
+      !admin ||
+      admin.role !==
+        "admin"
+    ) {
 
-    const totalSpent =
-      payments.reduce(
-        (
-          acc: number,
-          item: any
-        ) =>
-          acc +
-          item.amount,
-        0
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
       )
+    }
 
-    const successful =
-      payments.filter(
-        (item: any) =>
-          item.status ===
-          "paid"
-      ).length
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
 
-    const pending =
-      payments.filter(
-        (item: any) =>
-          item.status ===
-          "pending"
-      ).length
+    const body =
+      await req.json()
 
-    const refunded =
-      payments.filter(
-        (item: any) =>
-          item.status ===
-          "refunded"
-      ).length
+    //////////////////////////////////////////////////////
+    // UPDATE PAYMENT
+    //////////////////////////////////////////////////////
+
+    const payment =
+      await prisma.payment.update({
+
+        where: {
+          id,
+        },
+
+        data: {
+
+          status:
+            body.status,
+        },
+      })
 
     //////////////////////////////////////////////////////
     // RESPONSE
@@ -107,13 +119,9 @@ export async function GET(
 
     return NextResponse.json({
 
-      totalSpent,
+      success: true,
 
-      successful,
-
-      pending,
-
-      refunded,
+      payment,
     })
 
   } catch (error) {
@@ -123,7 +131,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Failed to fetch payment stats",
+          "Failed to update payment",
       },
       {
         status: 500,

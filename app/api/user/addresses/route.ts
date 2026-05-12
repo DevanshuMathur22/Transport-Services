@@ -1,4 +1,9 @@
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
+
+import jwt from "jsonwebtoken"
 
 import { prisma } from "@/lib/prisma"
 
@@ -6,28 +11,60 @@ import { prisma } from "@/lib/prisma"
 // GET ADDRESSES
 //////////////////////////////////////////////////////
 
-export async function GET() {
+export async function GET(
+  req: NextRequest
+) {
 
   try {
 
-    const user =
-      await prisma.user.findFirst()
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
 
-    if (!user) {
+    const token =
+      req.cookies.get("token")
+        ?.value
 
-      return NextResponse.json([])
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
     }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // GET ADDRESSES
+    //////////////////////////////////////////////////////
 
     const addresses =
       await prisma.address.findMany({
 
         where: {
           userId:
-            user.id,
+            decoded.id,
         },
 
         orderBy: {
-          createdAt: "desc",
+          createdAt:
+            "desc",
         },
       })
 
@@ -56,10 +93,47 @@ export async function GET() {
 //////////////////////////////////////////////////////
 
 export async function POST(
-  req: Request
+  req: NextRequest
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
 
     const body =
       await req.json()
@@ -74,6 +148,7 @@ export async function POST(
       !body.city ||
       !body.pincode
     ) {
+
       return NextResponse.json(
         {
           error:
@@ -81,26 +156,6 @@ export async function POST(
         },
         {
           status: 400,
-        }
-      )
-    }
-
-    //////////////////////////////////////////////////////
-    // GET USER
-    //////////////////////////////////////////////////////
-
-    const user =
-      await prisma.user.findFirst()
-
-    if (!user) {
-
-      return NextResponse.json(
-        {
-          error:
-            "User not found",
-        },
-        {
-          status: 404,
         }
       )
     }
@@ -115,7 +170,7 @@ export async function POST(
         data: {
 
           userId:
-            user.id,
+            decoded.id,
 
           name:
             body.name,
@@ -130,7 +185,8 @@ export async function POST(
             body.pincode,
 
           isDefault:
-            body.isDefault || false,
+            body.isDefault ||
+            false,
         },
       })
 

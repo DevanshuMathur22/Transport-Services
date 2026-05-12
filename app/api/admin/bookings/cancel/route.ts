@@ -1,3 +1,5 @@
+// app/api/admin/bookings/cancel/route.ts
+
 import {
   NextRequest,
   NextResponse,
@@ -8,10 +10,10 @@ import jwt from "jsonwebtoken"
 import { prisma } from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
-// GET PROFILE
+// CANCEL BOOKING
 //////////////////////////////////////////////////////
 
-export async function GET(
+export async function POST(
   req: NextRequest
 ) {
 
@@ -51,11 +53,11 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
-    // GET USER
+    // CHECK ADMIN
     //////////////////////////////////////////////////////
 
-    const user =
-      await prisma.user.findUnique({
+    const admin =
+      await prisma.user.findFirst({
 
         where: {
           id:
@@ -63,12 +65,65 @@ export async function GET(
         },
       })
 
-    if (!user) {
+    if (
+      !admin ||
+      admin.role !== "admin"
+    ) {
 
       return NextResponse.json(
         {
           error:
-            "User not found",
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
+
+    const body =
+      await req.json()
+
+    const {
+      bookingId,
+    } = body
+
+    if (!bookingId) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Booking id required",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // FIND BOOKING
+    //////////////////////////////////////////////////////
+
+    const booking =
+      await prisma.booking.findUnique({
+
+        where: {
+          id:
+            bookingId,
+        },
+      })
+
+    if (!booking) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Booking not found",
         },
         {
           status: 404,
@@ -77,28 +132,75 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
+    // UPDATE STATUS
+    //////////////////////////////////////////////////////
+
+    const updatedBooking =
+      await prisma.booking.update({
+
+        where: {
+          id:
+            bookingId,
+        },
+
+        data: {
+
+          status:
+            "cancelled",
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // TRACKING ENTRY
+    //////////////////////////////////////////////////////
+
+    await prisma.tracking.create({
+
+      data: {
+
+        bookingId:
+          booking.id,
+
+        location:
+          booking.toCity,
+
+        message:
+          "Shipment cancelled by admin",
+      },
+    })
+
+    //////////////////////////////////////////////////////
+    // NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          booking.userId,
+
+        title:
+          "Booking Cancelled",
+
+        message:
+          `Shipment ${booking.trackingId} has been cancelled by admin.`,
+
+        type:
+          "booking",
+      },
+    })
+
+    //////////////////////////////////////////////////////
     // RESPONSE
     //////////////////////////////////////////////////////
 
     return NextResponse.json({
 
-      id:
-        user.id,
+      success: true,
 
-      name:
-        user.name,
-
-      email:
-        user.email,
-
-      phone:
-        user.phone || "",
-
-      city:
-        user.city || "",
-
-      address:
-        user.address || "",
+      booking:
+        updatedBooking,
     })
 
   } catch (error) {
@@ -108,112 +210,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Failed to fetch profile",
-      },
-      {
-        status: 500,
-      }
-    )
-  }
-}
-
-//////////////////////////////////////////////////////
-// UPDATE PROFILE
-//////////////////////////////////////////////////////
-
-export async function PUT(
-  req: NextRequest
-) {
-
-  try {
-
-    //////////////////////////////////////////////////////
-    // TOKEN
-    //////////////////////////////////////////////////////
-
-    const token =
-      req.cookies.get("token")
-        ?.value
-
-    if (!token) {
-
-      return NextResponse.json(
-        {
-          error:
-            "Unauthorized",
-        },
-        {
-          status: 401,
-        }
-      )
-    }
-
-    //////////////////////////////////////////////////////
-    // VERIFY TOKEN
-    //////////////////////////////////////////////////////
-
-    const decoded =
-      jwt.verify(
-        token,
-        process.env.JWT_SECRET!
-      ) as {
-        id: string
-      }
-
-    //////////////////////////////////////////////////////
-    // BODY
-    //////////////////////////////////////////////////////
-
-    const body =
-      await req.json()
-
-    //////////////////////////////////////////////////////
-    // UPDATE USER
-    //////////////////////////////////////////////////////
-
-    const updatedUser =
-      await prisma.user.update({
-
-        where: {
-          id:
-            decoded.id,
-        },
-
-        data: {
-
-          name:
-            body.name,
-
-          email:
-            body.email,
-
-          phone:
-            body.phone,
-
-          city:
-            body.city,
-
-          address:
-            body.address,
-        },
-      })
-
-    //////////////////////////////////////////////////////
-    // RESPONSE
-    //////////////////////////////////////////////////////
-
-    return NextResponse.json(
-      updatedUser
-    )
-
-  } catch (error) {
-
-    console.log(error)
-
-    return NextResponse.json(
-      {
-        error:
-          "Failed to update profile",
+          "Failed to cancel booking",
       },
       {
         status: 500,

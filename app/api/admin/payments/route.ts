@@ -1,4 +1,4 @@
-// app/api/user/payment-stats/route.ts
+// app/api/admin/payments/route.ts
 
 import {
   NextRequest,
@@ -10,7 +10,7 @@ import jwt from "jsonwebtoken"
 import { prisma } from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
-// PAYMENT STATS
+// GET ADMIN PAYMENTS
 //////////////////////////////////////////////////////
 
 export async function GET(
@@ -53,15 +53,87 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
-    // USER PAYMENTS
+    // CHECK ADMIN
+    //////////////////////////////////////////////////////
+
+    const admin =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+      })
+
+    if (
+      !admin ||
+      admin.role !==
+        "admin"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // PAYMENTS
     //////////////////////////////////////////////////////
 
     const payments =
       await prisma.payment.findMany({
 
-        where: {
-          userId:
-            decoded.id,
+        include: {
+
+          //////////////////////////////////////////////////////
+          // USER
+          //////////////////////////////////////////////////////
+
+          user: {
+
+            select: {
+
+              id: true,
+
+              name: true,
+
+              email: true,
+
+              phone: true,
+            },
+          },
+
+          //////////////////////////////////////////////////////
+          // BOOKING
+          //////////////////////////////////////////////////////
+
+          booking: {
+
+            select: {
+
+              id: true,
+
+              trackingId: true,
+
+              fromCity: true,
+
+              toCity: true,
+
+              status: true,
+            },
+          },
+        },
+
+        orderBy: {
+
+          createdAt:
+            "desc",
         },
       })
 
@@ -69,34 +141,40 @@ export async function GET(
     // STATS
     //////////////////////////////////////////////////////
 
-    const totalSpent =
-      payments.reduce(
-        (
-          acc: number,
-          item: any
-        ) =>
-          acc +
-          item.amount,
-        0
-      )
+    const totalRevenue =
+      payments
+        .filter(
+          (item) =>
+            item.status ===
+            "paid"
+        )
+        .reduce(
+          (
+            acc,
+            item
+          ) =>
+            acc +
+            item.amount,
+          0
+        )
 
     const successful =
       payments.filter(
-        (item: any) =>
+        (item) =>
           item.status ===
           "paid"
       ).length
 
     const pending =
       payments.filter(
-        (item: any) =>
+        (item) =>
           item.status ===
           "pending"
       ).length
 
     const refunded =
       payments.filter(
-        (item: any) =>
+        (item) =>
           item.status ===
           "refunded"
       ).length
@@ -107,13 +185,18 @@ export async function GET(
 
     return NextResponse.json({
 
-      totalSpent,
+      payments,
 
-      successful,
+      stats: {
 
-      pending,
+        totalRevenue,
 
-      refunded,
+        successful,
+
+        pending,
+
+        refunded,
+      },
     })
 
   } catch (error) {
@@ -123,7 +206,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Failed to fetch payment stats",
+          "Failed to fetch payments",
       },
       {
         status: 500,

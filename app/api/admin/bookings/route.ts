@@ -1,4 +1,4 @@
-// app/api/user/payments/route.ts
+// app/api/admin/bookings/route.ts
 
 import {
   NextRequest,
@@ -10,7 +10,7 @@ import jwt from "jsonwebtoken"
 import { prisma } from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
-// GET PAYMENTS
+// GET ADMIN BOOKINGS
 //////////////////////////////////////////////////////
 
 export async function GET(
@@ -53,22 +53,78 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
-    // USER PAYMENTS
+    // CHECK ADMIN
     //////////////////////////////////////////////////////
 
-    const payments =
-      await prisma.payment.findMany({
+   const admin =
+  await prisma.user.findFirst({
 
-        where: {
-          userId:
-            decoded.id,
-        },
+    where: {
+      id:
+        decoded.id,
+    },
+  })
+
+console.log("DECODED:", decoded)
+
+console.log("ADMIN:", admin)
+
+    //////////////////////////////////////////////////////
+    // BOOKINGS
+    //////////////////////////////////////////////////////
+
+    const bookings =
+      await prisma.booking.findMany({
 
         include: {
-          booking: true,
+
+          //////////////////////////////////////////////////////
+          // CUSTOMER
+          //////////////////////////////////////////////////////
+
+          user: {
+
+            select: {
+
+              id: true,
+
+              name: true,
+
+              email: true,
+
+              phone: true,
+            },
+          },
+
+          //////////////////////////////////////////////////////
+          // DRIVER
+          //////////////////////////////////////////////////////
+
+          driver: {
+
+            select: {
+
+              id: true,
+
+              name: true,
+
+              phone: true,
+
+              vehicleType: true,
+
+              vehicleNumber: true,
+            },
+          },
+
+          //////////////////////////////////////////////////////
+          // PAYMENT
+          //////////////////////////////////////////////////////
+
+          payment: true,
         },
 
         orderBy: {
+
           createdAt:
             "desc",
         },
@@ -79,7 +135,7 @@ export async function GET(
     //////////////////////////////////////////////////////
 
     return NextResponse.json(
-      payments
+      bookings
     )
 
   } catch (error) {
@@ -89,7 +145,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Failed to fetch payments",
+          "Failed to fetch bookings",
       },
       {
         status: 500,

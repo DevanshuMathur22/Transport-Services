@@ -80,11 +80,12 @@ export async function POST(
     //////////////////////////////////////////////////////
     // VALID ROLES
     //////////////////////////////////////////////////////
-
-    const validRole =
-      role === "driver"
-        ? "driver"
-        : "user"
+const validRole =
+  role === "admin"
+    ? "admin"
+    : role === "driver"
+    ? "driver"
+    : "user"
 
     //////////////////////////////////////////////////////
     // CREATE USER

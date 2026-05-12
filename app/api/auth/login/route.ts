@@ -1,12 +1,18 @@
 import { prisma } from "@/lib/prisma"
+
 import { NextResponse } from "next/server"
+
 import bcrypt from "bcryptjs"
+
 import jwt from "jsonwebtoken"
 
-export async function POST(req: Request) {
+export async function POST(
+  req: Request
+) {
   try {
 
-    const body = await req.json()
+    const body =
+      await req.json()
 
     const {
       email,
@@ -25,6 +31,7 @@ export async function POST(req: Request) {
       })
 
     if (!user) {
+
       return NextResponse.json(
         {
           error:
@@ -47,6 +54,7 @@ export async function POST(req: Request) {
       )
 
     if (!isPasswordValid) {
+
       return NextResponse.json(
         {
           error:
@@ -54,6 +62,23 @@ export async function POST(req: Request) {
         },
         {
           status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (user.isBlocked) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Your account has been blocked",
+        },
+        {
+          status: 403,
         }
       )
     }
@@ -67,11 +92,22 @@ export async function POST(req: Request) {
         id: user.id,
         role: user.role,
       },
+
       process.env.JWT_SECRET!,
+
       {
         expiresIn: "7d",
       }
     )
+
+    //////////////////////////////////////////////////////
+    // REMOVE PASSWORD
+    //////////////////////////////////////////////////////
+
+    const {
+      password: _,
+      ...safeUser
+    } = user
 
     //////////////////////////////////////////////////////
     // RESPONSE
@@ -80,8 +116,10 @@ export async function POST(req: Request) {
     const response =
       NextResponse.json({
         success: true,
+
         token,
-        user,
+
+        user: safeUser,
       })
 
     //////////////////////////////////////////////////////
@@ -93,15 +131,25 @@ export async function POST(req: Request) {
       token,
       {
         httpOnly: true,
-        secure: false,
+
+        secure:
+          process.env.NODE_ENV ===
+          "production",
+
         sameSite: "lax",
+
         path: "/",
+
+        maxAge:
+          60 * 60 * 24 * 7,
       }
     )
 
     return response
 
   } catch (error) {
+
+    console.log(error)
 
     return NextResponse.json(
       {

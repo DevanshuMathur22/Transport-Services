@@ -1,6 +1,11 @@
 // app/api/user/settings/route.ts
 
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
+
+import jwt from "jsonwebtoken"
 
 import { prisma } from "@/lib/prisma"
 
@@ -8,16 +13,57 @@ import { prisma } from "@/lib/prisma"
 // GET SETTINGS
 //////////////////////////////////////////////////////
 
-export async function GET() {
+export async function GET(
+  req: NextRequest
+) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
 
     //////////////////////////////////////////////////////
     // GET USER
     //////////////////////////////////////////////////////
 
     const user =
-      await prisma.user.findFirst()
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+      })
 
     if (!user) {
 
@@ -38,13 +84,20 @@ export async function GET() {
 
     const settings = {
 
-      notifications: true,
+      notifications:
+        true,
 
-      darkMode: false,
+      darkMode:
+        false,
 
       twoFactor:
-        user.isVerified || false,
+        user.isVerified ||
+        false,
     }
+
+    //////////////////////////////////////////////////////
+    // RESPONSE
+    //////////////////////////////////////////////////////
 
     return NextResponse.json(
       settings
@@ -71,33 +124,50 @@ export async function GET() {
 //////////////////////////////////////////////////////
 
 export async function PUT(
-  req: Request
+  req: NextRequest
 ) {
 
   try {
 
-    const body =
-      await req.json()
-
     //////////////////////////////////////////////////////
-    // GET USER
+    // TOKEN
     //////////////////////////////////////////////////////
 
-    const user =
-      await prisma.user.findFirst()
+    const token =
+      req.cookies.get("token")
+        ?.value
 
-    if (!user) {
+    if (!token) {
 
       return NextResponse.json(
         {
           error:
-            "User not found",
+            "Unauthorized",
         },
         {
-          status: 404,
+          status: 401,
         }
       )
     }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
+
+    const body =
+      await req.json()
 
     //////////////////////////////////////////////////////
     // UPDATE USER
@@ -107,7 +177,7 @@ export async function PUT(
 
       where: {
         id:
-          user.id,
+          decoded.id,
       },
 
       data: {

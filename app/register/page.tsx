@@ -234,6 +234,13 @@ export default function RegisterPage() {
       Driver
     </option>
 
+    <option
+  value="admin"
+  className="bg-black"
+>
+  Admin
+</option>
+
   </select>
 </div>
 

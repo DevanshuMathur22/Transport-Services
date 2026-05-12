@@ -46,8 +46,9 @@ export default function BookingsPage() {
     async () => {
       try {
         const res =
-          await axios.get(
-            "/api/bookings"
+         await axios.get(
+  "/api/user/bookings"
+
           )
 
         setBookings(

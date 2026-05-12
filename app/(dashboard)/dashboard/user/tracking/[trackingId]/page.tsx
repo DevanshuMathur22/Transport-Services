@@ -51,36 +51,36 @@ export default function TrackingDetailsPage({
   //////////////////////////////////////////////////////
   // FETCH TRACKING
   //////////////////////////////////////////////////////
+useEffect(() => {
 
-  useEffect(() => {
+  if (!trackingId) return
 
-    if (!trackingId) return
+  async function fetchTracking() {
 
-    async function fetchTracking() {
+    try {
 
-      try {
+      const res =
+        await axios.get(
+          `/api/user/tracking/${trackingId}`
+        )
 
-        const res =
-          await axios.get(
-            `/api/tracking/${trackingId}`
-          )
+      setData(
+        res.data
+      )
 
-        setData(res.data)
+    } catch (error) {
 
-      } catch (error) {
+      console.log(error)
 
-        console.log(error)
+    } finally {
 
-      } finally {
-
-        setLoading(false)
-      }
+      setLoading(false)
     }
+  }
 
-    fetchTracking()
+  fetchTracking()
 
-  }, [trackingId])
-
+}, [trackingId])
   //////////////////////////////////////////////////////
   // LOADING
   //////////////////////////////////////////////////////

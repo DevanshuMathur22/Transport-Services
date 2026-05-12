@@ -54,28 +54,28 @@ export default function PaymentsPage() {
   }, [])
 
   const fetchPayments =
-    async () => {
+  async () => {
 
-      try {
+    try {
 
-        const res =
-          await axios.get(
-            "/api/user/payments"
-          )
-
-        setPayments(
-          res.data
+      const res =
+        await axios.get(
+          "/api/user/payments"
         )
 
-      } catch (error) {
+      setPayments(
+        res.data
+      )
 
-        console.log(error)
+    } catch (error) {
 
-      } finally {
+      console.log(error)
 
-        setLoading(false)
-      }
+    } finally {
+
+      setLoading(false)
     }
+  }
 
   //////////////////////////////////////////////////////
   // FILTERED DATA

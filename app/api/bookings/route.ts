@@ -1,46 +1,58 @@
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
+
+import jwt from "jsonwebtoken"
+
 import { prisma } from "@/lib/prisma"
-
-//////////////////////////////////////////////////////
-// GET ALL BOOKINGS
-//////////////////////////////////////////////////////
-
-export async function GET() {
-  try {
-
-    const bookings =
-      await prisma.booking.findMany({
-        orderBy: {
-          createdAt: "desc",
-        },
-      })
-
-    return NextResponse.json(
-      bookings
-    )
-
-  } catch (error) {
-
-    return NextResponse.json(
-      {
-        error:
-          "Failed to fetch bookings",
-      },
-      {
-        status: 500,
-      }
-    )
-  }
-}
 
 //////////////////////////////////////////////////////
 // CREATE BOOKING
 //////////////////////////////////////////////////////
 
 export async function POST(
-  req: Request
+  req: NextRequest
 ) {
+
   try {
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
 
     const body =
       await req.json()
@@ -50,7 +62,6 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     if (
-      !body.userId ||
       !body.fromCity ||
       !body.toCity ||
       !body.pickupAddress ||
@@ -59,6 +70,7 @@ export async function POST(
       !body.weight ||
       !body.distance
     ) {
+
       return NextResponse.json(
         {
           error:
@@ -97,10 +109,15 @@ export async function POST(
 
     const booking =
       await prisma.booking.create({
+
         data: {
 
+          //////////////////////////////////////////////////////
+          // TOKEN USER ID
+          //////////////////////////////////////////////////////
+
           userId:
-            body.userId,
+            decoded.id,
 
           trackingId:
             `PRT${Date.now()}`,
@@ -138,7 +155,7 @@ export async function POST(
           estimatedTime,
 
           //////////////////////////////////////////////////////
-          // OPTIONAL EXTRA FIELDS
+          // OPTIONAL
           //////////////////////////////////////////////////////
 
           // @ts-ignore
@@ -164,10 +181,11 @@ export async function POST(
       })
 
     //////////////////////////////////////////////////////
-    // CREATE TRACKING
+    // TRACKING
     //////////////////////////////////////////////////////
 
     await prisma.tracking.create({
+
       data: {
 
         bookingId:
@@ -182,26 +200,26 @@ export async function POST(
     })
 
     //////////////////////////////////////////////////////
-// CREATE NOTIFICATION
-//////////////////////////////////////////////////////
+    // NOTIFICATION
+    //////////////////////////////////////////////////////
 
-await prisma.notification.create({
+    await prisma.notification.create({
 
-  data: {
+      data: {
 
-    userId:
-      booking.userId,
+        userId:
+          booking.userId,
 
-    title:
-      "Booking Created",
+        title:
+          "Booking Created",
 
-    message:
-      `Tracking ID ${booking.trackingId} created successfully.`,
+        message:
+          `Tracking ID ${booking.trackingId} created successfully.`,
 
-    type:
-      "booking",
-  },
-})
+        type:
+          "booking",
+      },
+    })
 
     //////////////////////////////////////////////////////
     // RESPONSE

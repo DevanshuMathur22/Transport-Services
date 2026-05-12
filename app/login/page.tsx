@@ -27,50 +27,77 @@ export default function LoginPage() {
   })
 
   const handleLogin = async (
-    e: React.FormEvent
-  ) => {
+  e: React.FormEvent
+) => {
 
-    e.preventDefault()
+  e.preventDefault()
 
-    try {
+  try {
 
-      setLoading(true)
+    setLoading(true)
 
-      const res = await axios.post(
-        "/api/auth/login",
-        form
-      )
-if (res.data.success) {
-
-  if (
-    res.data.user.role ===
-    "driver"
-  ) {
-
-    router.push(
-      "/dashboard/driver"
+    const res = await axios.post(
+      "/api/auth/login",
+      form
     )
 
-  } else {
+    //////////////////////////////////////////////////////
+    // SUCCESS
+    //////////////////////////////////////////////////////
 
-    router.push(
-      "/dashboard/user"
+    if (res.data.success) {
+
+      router.refresh()
+
+      //////////////////////////////////////////////////////
+      // ADMIN
+      //////////////////////////////////////////////////////
+
+      if (
+        res.data.user.role ===
+        "admin"
+      ) {
+
+        router.push(
+          "/dashboard/admin"
+        )
+
+      //////////////////////////////////////////////////////
+      // DRIVER
+      //////////////////////////////////////////////////////
+
+      } else if (
+        res.data.user.role ===
+        "driver"
+      ) {
+
+        router.push(
+          "/dashboard/driver"
+        )
+
+      //////////////////////////////////////////////////////
+      // USER
+      //////////////////////////////////////////////////////
+
+      } else {
+
+        router.push(
+          "/dashboard/user"
+        )
+      }
+    }
+
+  } catch (error: any) {
+
+    alert(
+      error.response?.data?.error
     )
+
+  } finally {
+
+    setLoading(false)
   }
 }
-
-    } catch (error: any) {
-
-      alert(
-        error.response?.data?.error
-      )
-
-    } finally {
-
-      setLoading(false)
-    }
-  }
-
   return (
     <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050505] px-4 py-10">
 

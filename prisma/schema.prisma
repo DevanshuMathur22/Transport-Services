@@ -144,13 +144,9 @@ model Booking {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  driver           User?         @relation(
-    "DriverBookings",
-    fields: [driverId],
-    references: [id]
-  )
+  driver           User? @relation("DriverBookings", fields: [driverId], references: [id])
 
   payment          Payment?
   tracking         Tracking[]
@@ -158,23 +154,6 @@ model Booking {
   @@index([userId])
   @@index([driverId])
   @@index([status])
-}
-
-model Tracking {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  bookingId  String   @db.ObjectId
-
-  location   String
-  message    String
-
-  latitude   Float?
-  longitude  Float?
-
-  createdAt  DateTime @default(now())
-
-  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-
-  @@index([bookingId])
 }
 
 model Payment {
@@ -193,14 +172,26 @@ model Payment {
 
   user           User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  booking        Booking @relation(
-    fields: [bookingId],
-    references: [id],
-    onDelete: Cascade
-  )
+  booking        Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
+}
+model Tracking {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId  String   @db.ObjectId
+
+  location   String
+  message    String
+
+  latitude   Float?
+  longitude  Float?
+
+  createdAt  DateTime @default(now())
+
+  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
 }
 
 model Notification {

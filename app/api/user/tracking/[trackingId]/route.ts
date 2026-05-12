@@ -1,6 +1,4 @@
-// app/api/user/active-shipment/route.ts
-
-import { prisma } from "@/lib/prisma"
+// app/api/user/tracking/[trackingId]/route.ts
 
 import {
   NextRequest,
@@ -9,8 +7,21 @@ import {
 
 import jwt from "jsonwebtoken"
 
+import { prisma } from "@/lib/prisma"
+
+interface Props {
+  params: Promise<{
+    trackingId: string
+  }>
+}
+
+//////////////////////////////////////////////////////
+// GET TRACKING
+//////////////////////////////////////////////////////
+
 export async function GET(
-  req: NextRequest
+  req: NextRequest,
+  { params }: Props
 ) {
 
   try {
@@ -49,7 +60,14 @@ export async function GET(
       }
 
     //////////////////////////////////////////////////////
-    // USER ACTIVE BOOKING
+    // PARAMS
+    //////////////////////////////////////////////////////
+
+    const resolvedParams =
+      await params
+
+    //////////////////////////////////////////////////////
+    // BOOKING
     //////////////////////////////////////////////////////
 
     const booking =
@@ -57,67 +75,41 @@ export async function GET(
 
         where: {
 
+          trackingId:
+            resolvedParams.trackingId,
+
           userId:
             decoded.id,
-
-          OR: [
-            {
-              status:
-                "accepted",
-            },
-            {
-              status:
-                "picked_up",
-            },
-            {
-              status:
-                "in_transit",
-            },
-          ],
         },
 
-        orderBy: {
-          createdAt:
-            "desc",
+        include: {
+
+          tracking: {
+            orderBy: {
+              createdAt:
+                "asc",
+            },
+          },
+
+          driver: true,
         },
       })
 
     //////////////////////////////////////////////////////
-    // NO ACTIVE SHIPMENT
+    // NOT FOUND
     //////////////////////////////////////////////////////
 
     if (!booking) {
 
       return NextResponse.json(
-        null
+        {
+          error:
+            "Tracking not found",
+        },
+        {
+          status: 404,
+        }
       )
-    }
-
-    //////////////////////////////////////////////////////
-    // PROGRESS
-    //////////////////////////////////////////////////////
-
-    let progress = 10
-
-    if (
-      booking.status ===
-      "accepted"
-    ) {
-      progress = 25
-    }
-
-    if (
-      booking.status ===
-      "picked_up"
-    ) {
-      progress = 55
-    }
-
-    if (
-      booking.status ===
-      "in_transit"
-    ) {
-      progress = 80
     }
 
     //////////////////////////////////////////////////////
@@ -125,9 +117,6 @@ export async function GET(
     //////////////////////////////////////////////////////
 
     return NextResponse.json({
-
-      id:
-        booking.id,
 
       trackingId:
         booking.trackingId,
@@ -144,11 +133,36 @@ export async function GET(
       status:
         booking.status,
 
-      progress,
-
       eta:
-        booking.estimatedTime ||
-        "2h 30m",
+        booking.estimatedTime,
+
+      driver: {
+
+        name:
+          booking.driver
+            ?.name || "Not Assigned",
+
+        phone:
+          booking.driver
+            ?.phone || "N/A",
+      },
+
+      timeline:
+        booking.tracking.map(
+          (item) => ({
+
+            message:
+              item.message,
+
+            location:
+              item.location,
+
+            time:
+              new Date(
+                item.createdAt
+              ).toLocaleString(),
+          })
+        ),
     })
 
   } catch (error) {
@@ -158,7 +172,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Failed to fetch active shipment",
+          "Failed to fetch tracking",
       },
       {
         status: 500,
