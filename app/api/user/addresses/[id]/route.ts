@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
 import {
   NextRequest,
@@ -6,6 +7,16 @@ import {
 } from "next/server"
 
 import jwt from "jsonwebtoken"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
 
 //////////////////////////////////////////////////////
 // DELETE ADDRESS
@@ -25,6 +36,10 @@ export async function DELETE(
       req.cookies.get("token")
         ?.value
 
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
+
     if (!token) {
 
       return NextResponse.json(
@@ -39,13 +54,35 @@ export async function DELETE(
     }
 
     //////////////////////////////////////////////////////
+    // JWT SECRET
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -57,8 +94,13 @@ export async function DELETE(
     const body =
       await req.json()
 
-    const { addressId } =
-      body
+    const {
+      addressId,
+    } = body
+
+    //////////////////////////////////////////////////////
+    // VALIDATION
+    //////////////////////////////////////////////////////
 
     if (!addressId) {
 
@@ -74,6 +116,45 @@ export async function DELETE(
     }
 
     //////////////////////////////////////////////////////
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // ACCESS CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !user
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "User not found",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // FIND ADDRESS
     //////////////////////////////////////////////////////
 
@@ -81,12 +162,18 @@ export async function DELETE(
       await prisma.address.findFirst({
 
         where: {
-          id: addressId,
+
+          id:
+            addressId,
 
           userId:
             decoded.id,
         },
       })
+
+    //////////////////////////////////////////////////////
+    // ADDRESS NOT FOUND
+    //////////////////////////////////////////////////////
 
     if (!address) {
 
@@ -108,7 +195,30 @@ export async function DELETE(
     await prisma.address.delete({
 
       where: {
-        id: addressId,
+        id:
+          addressId,
+      },
+    })
+
+    //////////////////////////////////////////////////////
+    // NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          decoded.id,
+
+        title:
+          "Address Deleted",
+
+        message:
+          `${address.address} removed successfully.`,
+
+        type:
+          "address",
       },
     })
 
@@ -117,12 +227,19 @@ export async function DELETE(
     //////////////////////////////////////////////////////
 
     return NextResponse.json({
+
       success: true,
+
+      message:
+        "Address deleted successfully",
     })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "DELETE ADDRESS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

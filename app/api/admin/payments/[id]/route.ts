@@ -5,7 +5,28 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// PARAMS TYPE
+//////////////////////////////////////////////////////
+
+type Props = {
+  params: Promise<{
+    id: string
+  }>
+}
 
 //////////////////////////////////////////////////////
 // UPDATE PAYMENT
@@ -13,14 +34,14 @@ import { prisma } from "@/lib/prisma"
 
 export async function PUT(
   req: NextRequest,
-  context: {
-    params: Promise<{
-      id: string
-    }>
-  }
+  context: Props
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // PARAMS
+    //////////////////////////////////////////////////////
 
     const { id } =
       await context.params
@@ -32,6 +53,10 @@ export async function PUT(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -47,13 +72,35 @@ export async function PUT(
     }
 
     //////////////////////////////////////////////////////
-    // VERIFY
+    // JWT SECRET
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -71,10 +118,17 @@ export async function PUT(
         },
       })
 
+    //////////////////////////////////////////////////////
+    // ACCESS DENIED
+    //////////////////////////////////////////////////////
+
     if (
+
       !admin ||
+
       admin.role !==
         "admin"
+
     ) {
 
       return NextResponse.json(
@@ -96,6 +150,63 @@ export async function PUT(
       await req.json()
 
     //////////////////////////////////////////////////////
+    // VALIDATION
+    //////////////////////////////////////////////////////
+
+    if (
+      !body.status
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Status is required",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // FIND PAYMENT
+    //////////////////////////////////////////////////////
+
+    const existingPayment =
+      await prisma.payment.findUnique({
+
+        where: {
+          id,
+        },
+
+        include: {
+
+          booking: true,
+
+          user: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // PAYMENT NOT FOUND
+    //////////////////////////////////////////////////////
+
+    if (
+      !existingPayment
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Payment not found",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // UPDATE PAYMENT
     //////////////////////////////////////////////////////
 
@@ -111,7 +222,70 @@ export async function PUT(
           status:
             body.status,
         },
+
+        include: {
+
+          booking: true,
+
+          user: {
+
+            select: {
+
+              id: true,
+
+              name: true,
+
+              email: true,
+            },
+          },
+        },
       })
+
+    //////////////////////////////////////////////////////
+    // USER NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          payment.userId,
+
+        title:
+          "Payment Updated",
+
+        message:
+          `Your payment status is now ${payment.status}.`,
+
+        type:
+          "payment",
+      },
+    })
+
+    //////////////////////////////////////////////////////
+    // TRACKING ENTRY
+    //////////////////////////////////////////////////////
+
+    if (
+      payment.booking
+    ) {
+
+      await prisma.tracking.create({
+
+        data: {
+
+          bookingId:
+            payment.booking.id,
+
+          location:
+            payment.booking.toCity,
+
+          message:
+            `Payment marked as ${payment.status}`,
+        },
+      })
+    }
 
     //////////////////////////////////////////////////////
     // RESPONSE
@@ -126,7 +300,10 @@ export async function PUT(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "UPDATE PAYMENT ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

@@ -10,15 +10,33 @@ import jwt from "jsonwebtoken"
 import { prisma }
 from "@/lib/prisma"
 
-interface Props {
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// PARAMS TYPE
+//////////////////////////////////////////////////////
+
+type Props = {
   params: Promise<{
     id: string
   }>
 }
 
+//////////////////////////////////////////////////////
+// GET DRIVER ORDER
+//////////////////////////////////////////////////////
+
 export async function GET(
   req: NextRequest,
-  { params }: Props
+  context: Props
 ) {
 
   try {
@@ -30,6 +48,10 @@ export async function GET(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -45,13 +67,35 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
+    // JWT SECRET
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -60,8 +104,52 @@ export async function GET(
     // PARAMS
     //////////////////////////////////////////////////////
 
-    const resolved =
-      await params
+    const { id } =
+      await context.params
+
+    //////////////////////////////////////////////////////
+    // FIND DRIVER
+    //////////////////////////////////////////////////////
+
+    const driver =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // ACCESS CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+
+      !driver ||
+
+      driver.role !==
+        "driver"
+
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // FIND ORDER
@@ -71,8 +159,7 @@ export async function GET(
       await prisma.booking.findUnique({
 
         where: {
-          id:
-            resolved.id,
+          id,
         },
 
         include: {
@@ -92,6 +179,28 @@ export async function GET(
               email: true,
 
               phone: true,
+
+              address: true,
+
+              city: true,
+            },
+          },
+
+          //////////////////////////////////////////////////////
+          // PAYMENT
+          //////////////////////////////////////////////////////
+
+          payment: {
+
+            select: {
+
+              amount: true,
+
+              status: true,
+
+              paymentMethod: true,
+
+              transactionId: true,
             },
           },
 
@@ -102,6 +211,7 @@ export async function GET(
           tracking: {
 
             orderBy: {
+
               createdAt:
                 "asc",
             },
@@ -127,7 +237,7 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
-    // ACCESS CHECK
+    // DRIVER ACCESS CHECK
     //////////////////////////////////////////////////////
 
     if (
@@ -150,13 +260,19 @@ export async function GET(
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      order
-    )
+    return NextResponse.json({
+
+      success: true,
+
+      order,
+    })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "DRIVER ORDER ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

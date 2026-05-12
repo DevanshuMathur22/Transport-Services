@@ -10,7 +10,21 @@ import jwt from "jsonwebtoken"
 import { prisma }
 from "@/lib/prisma"
 
-interface Props {
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// PARAMS TYPE
+//////////////////////////////////////////////////////
+
+type Props = {
   params: Promise<{
     trackingId: string
   }>
@@ -22,7 +36,7 @@ interface Props {
 
 export async function GET(
   req: NextRequest,
-  { params }: Props
+  context: Props
 ) {
 
   try {
@@ -34,6 +48,10 @@ export async function GET(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -49,13 +67,35 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
+    // JWT SECRET
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -85,9 +125,12 @@ export async function GET(
     //////////////////////////////////////////////////////
 
     if (
+
       !user ||
+
       user.role !==
         "user"
+
     ) {
 
       return NextResponse.json(
@@ -105,8 +148,10 @@ export async function GET(
     // PARAMS
     //////////////////////////////////////////////////////
 
-    const resolvedParams =
-      await params
+    const {
+      trackingId,
+    } =
+      await context.params
 
     //////////////////////////////////////////////////////
     // BOOKING
@@ -117,8 +162,7 @@ export async function GET(
 
         where: {
 
-          trackingId:
-            resolvedParams.trackingId,
+          trackingId,
 
           userId:
             decoded.id,
@@ -160,6 +204,8 @@ export async function GET(
               latitude: true,
 
               longitude: true,
+
+              isOnline: true,
             },
           },
 
@@ -206,6 +252,8 @@ export async function GET(
 
     return NextResponse.json({
 
+      success: true,
+
       trackingId:
         booking.trackingId,
 
@@ -248,6 +296,9 @@ export async function GET(
       pickupTime:
         booking.pickupTime,
 
+      createdAt:
+        booking.createdAt,
+
       //////////////////////////////////////////////////////
       // DRIVER
       //////////////////////////////////////////////////////
@@ -283,6 +334,11 @@ export async function GET(
           booking.driver
             ?.longitude ||
           null,
+
+        isOnline:
+          booking.driver
+            ?.isOnline ||
+          false,
       },
 
       //////////////////////////////////////////////////////
@@ -344,7 +400,10 @@ export async function GET(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "TRACKING ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

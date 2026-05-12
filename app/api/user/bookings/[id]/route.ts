@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
 import {
   NextRequest,
@@ -8,16 +9,32 @@ import {
 import jwt from "jsonwebtoken"
 
 //////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// PARAMS TYPE
+//////////////////////////////////////////////////////
+
+type Props = {
+  params: Promise<{
+    id: string
+  }>
+}
+
+//////////////////////////////////////////////////////
 // GET SINGLE BOOKING
 //////////////////////////////////////////////////////
 
 export async function GET(
   req: NextRequest,
-  context: {
-    params: Promise<{
-      id: string
-    }>
-  }
+  context: Props
 ) {
 
   try {
@@ -29,6 +46,10 @@ export async function GET(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -44,13 +65,35 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
+    // JWT SECRET
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -140,13 +183,19 @@ export async function GET(
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      booking
-    )
+    return NextResponse.json({
+
+      success: true,
+
+      booking,
+    })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "GET BOOKING ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
@@ -166,11 +215,7 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  context: {
-    params: Promise<{
-      id: string
-    }>
-  }
+  context: Props
 ) {
 
   try {
@@ -182,6 +227,10 @@ export async function PUT(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -197,13 +246,35 @@ export async function PUT(
     }
 
     //////////////////////////////////////////////////////
+    // JWT SECRET
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -231,7 +302,13 @@ export async function PUT(
         },
       })
 
-    if (!existingBooking) {
+    //////////////////////////////////////////////////////
+    // NOT FOUND
+    //////////////////////////////////////////////////////
+
+    if (
+      !existingBooking
+    ) {
 
       return NextResponse.json(
         {
@@ -322,26 +399,14 @@ export async function PUT(
 
           estimatedTime,
 
-          //////////////////////////////////////////////////////
-          // OPTIONAL
-          //////////////////////////////////////////////////////
-
-          // @ts-ignore
-
           packageType:
             body.packageType,
-
-          // @ts-ignore
 
           pickupDate:
             body.pickupDate,
 
-          // @ts-ignore
-
           pickupTime:
             body.pickupTime,
-
-          // @ts-ignore
 
           instructions:
             body.instructions,
@@ -352,7 +417,9 @@ export async function PUT(
     // TRACKING UPDATE
     //////////////////////////////////////////////////////
 
-    if (body.status) {
+    if (
+      body.status
+    ) {
 
       await prisma.tracking.create({
 
@@ -433,7 +500,10 @@ export async function PUT(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "UPDATE BOOKING ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
@@ -453,11 +523,7 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  context: {
-    params: Promise<{
-      id: string
-    }>
-  }
+  context: Props
 ) {
 
   try {
@@ -469,6 +535,10 @@ export async function DELETE(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -484,13 +554,35 @@ export async function DELETE(
     }
 
     //////////////////////////////////////////////////////
+    // JWT SECRET
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -518,7 +610,13 @@ export async function DELETE(
         },
       })
 
-    if (!existingBooking) {
+    //////////////////////////////////////////////////////
+    // NOT FOUND
+    //////////////////////////////////////////////////////
+
+    if (
+      !existingBooking
+    ) {
 
       return NextResponse.json(
         {
@@ -558,7 +656,8 @@ export async function DELETE(
     await prisma.tracking.deleteMany({
 
       where: {
-        bookingId: id,
+        bookingId:
+          id,
       },
     })
 
@@ -569,7 +668,8 @@ export async function DELETE(
     await prisma.payment.deleteMany({
 
       where: {
-        bookingId: id,
+        bookingId:
+          id,
       },
     })
 
@@ -647,7 +747,10 @@ export async function DELETE(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "DELETE BOOKING ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

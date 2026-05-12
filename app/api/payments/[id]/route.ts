@@ -16,7 +16,21 @@ from "@/lib/send-email"
 import BookingEmail
 from "@/emails/booking-email"
 
-interface Props {
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// PARAMS TYPE
+//////////////////////////////////////////////////////
+
+type Props = {
   params: Promise<{
     id: string
   }>
@@ -28,7 +42,7 @@ interface Props {
 
 export async function GET(
   req: NextRequest,
-  { params }: Props
+  context: Props
 ) {
 
   try {
@@ -40,6 +54,10 @@ export async function GET(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -55,13 +73,35 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
-    // VERIFY
+    // JWT SECRET
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -70,8 +110,8 @@ export async function GET(
     // PARAMS
     //////////////////////////////////////////////////////
 
-    const resolved =
-      await params
+    const { id } =
+      await context.params
 
     //////////////////////////////////////////////////////
     // PAYMENT
@@ -81,8 +121,7 @@ export async function GET(
       await prisma.payment.findUnique({
 
         where: {
-          id:
-            resolved.id,
+          id,
         },
 
         include: {
@@ -144,13 +183,19 @@ export async function GET(
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      payment
-    )
+    return NextResponse.json({
+
+      success: true,
+
+      payment,
+    })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "GET PAYMENT ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
@@ -170,7 +215,7 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: Props
+  context: Props
 ) {
 
   try {
@@ -182,6 +227,10 @@ export async function PUT(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -197,13 +246,35 @@ export async function PUT(
     }
 
     //////////////////////////////////////////////////////
-    // VERIFY
+    // JWT SECRET
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -212,8 +283,8 @@ export async function PUT(
     // PARAMS
     //////////////////////////////////////////////////////
 
-    const resolved =
-      await params
+    const { id } =
+      await context.params
 
     //////////////////////////////////////////////////////
     // BODY
@@ -223,6 +294,25 @@ export async function PUT(
       await req.json()
 
     //////////////////////////////////////////////////////
+    // VALIDATION
+    //////////////////////////////////////////////////////
+
+    if (
+      !body.status
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Status is required",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // PAYMENT
     //////////////////////////////////////////////////////
 
@@ -230,8 +320,7 @@ export async function PUT(
       await prisma.payment.findUnique({
 
         where: {
-          id:
-            resolved.id,
+          id,
         },
 
         include: {
@@ -256,7 +345,9 @@ export async function PUT(
     // NOT FOUND
     //////////////////////////////////////////////////////
 
-    if (!existingPayment) {
+    if (
+      !existingPayment
+    ) {
 
       return NextResponse.json(
         {
@@ -297,14 +388,30 @@ export async function PUT(
       await prisma.payment.update({
 
         where: {
-          id:
-            resolved.id,
+          id,
         },
 
         data: {
 
           status:
             body.status,
+        },
+
+        include: {
+
+          booking: true,
+
+          user: {
+
+            select: {
+
+              id: true,
+
+              name: true,
+
+              email: true,
+            },
+          },
         },
       })
 
@@ -329,6 +436,30 @@ export async function PUT(
           "payment",
       },
     })
+
+    //////////////////////////////////////////////////////
+    // TRACKING ENTRY
+    //////////////////////////////////////////////////////
+
+    if (
+      payment.booking
+    ) {
+
+      await prisma.tracking.create({
+
+        data: {
+
+          bookingId:
+            payment.booking.id,
+
+          location:
+            payment.booking.toCity,
+
+          message:
+            `Payment marked as ${body.status}`,
+        },
+      })
+    }
 
     //////////////////////////////////////////////////////
     // EMAIL
@@ -363,13 +494,19 @@ export async function PUT(
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      payment
-    )
+    return NextResponse.json({
+
+      success: true,
+
+      payment,
+    })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "UPDATE PAYMENT ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

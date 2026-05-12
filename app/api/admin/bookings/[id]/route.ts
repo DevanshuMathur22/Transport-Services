@@ -7,7 +7,28 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// PARAMS TYPE
+//////////////////////////////////////////////////////
+
+type Props = {
+  params: Promise<{
+    id: string
+  }>
+}
 
 //////////////////////////////////////////////////////
 // UPDATE BOOKING
@@ -15,14 +36,14 @@ import { prisma } from "@/lib/prisma"
 
 export async function PUT(
   req: NextRequest,
-  context: {
-    params: Promise<{
-      id: string
-    }>
-  }
+  context: Props
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // PARAMS
+    //////////////////////////////////////////////////////
 
     const { id } =
       await context.params
@@ -34,6 +55,10 @@ export async function PUT(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -49,13 +74,35 @@ export async function PUT(
     }
 
     //////////////////////////////////////////////////////
+    // JWT SECRET
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -73,9 +120,17 @@ export async function PUT(
         },
       })
 
+    //////////////////////////////////////////////////////
+    // ACCESS DENIED
+    //////////////////////////////////////////////////////
+
     if (
+
       !admin ||
-      admin.role !== "admin"
+
+      admin.role !==
+        "admin"
+
     ) {
 
       return NextResponse.json(
@@ -110,18 +165,19 @@ export async function PUT(
         data: {
 
           //////////////////////////////////////////////////////
-          // STATUS UPDATE
+          // STATUS
           //////////////////////////////////////////////////////
 
           status:
             body.status,
 
           //////////////////////////////////////////////////////
-          // DRIVER ASSIGN / REMOVE
+          // DRIVER
           //////////////////////////////////////////////////////
 
           driverId:
-            body.driverId || null,
+            body.driverId ||
+            null,
         },
       })
 
@@ -140,13 +196,15 @@ export async function PUT(
           booking.toCity,
 
         message:
+
           body.message ||
+
           `Booking updated to ${body.status}`,
       },
     })
 
     //////////////////////////////////////////////////////
-    // NOTIFICATION
+    // USER NOTIFICATION
     //////////////////////////////////////////////////////
 
     await prisma.notification.create({
@@ -168,6 +226,33 @@ export async function PUT(
     })
 
     //////////////////////////////////////////////////////
+    // DRIVER NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    if (
+      booking.driverId
+    ) {
+
+      await prisma.notification.create({
+
+        data: {
+
+          userId:
+            booking.driverId,
+
+          title:
+            "Booking Assigned",
+
+          message:
+            `New shipment assigned: ${booking.trackingId}`,
+
+          type:
+            "driver",
+        },
+      })
+    }
+
+    //////////////////////////////////////////////////////
     // RESPONSE
     //////////////////////////////////////////////////////
 
@@ -180,7 +265,10 @@ export async function PUT(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "UPDATE BOOKING ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
@@ -200,14 +288,14 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  context: {
-    params: Promise<{
-      id: string
-    }>
-  }
+  context: Props
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // PARAMS
+    //////////////////////////////////////////////////////
 
     const { id } =
       await context.params
@@ -219,6 +307,10 @@ export async function DELETE(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -234,13 +326,35 @@ export async function DELETE(
     }
 
     //////////////////////////////////////////////////////
+    // JWT SECRET
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -258,9 +372,17 @@ export async function DELETE(
         },
       })
 
+    //////////////////////////////////////////////////////
+    // ACCESS DENIED
+    //////////////////////////////////////////////////////
+
     if (
+
       !admin ||
-      admin.role !== "admin"
+
+      admin.role !==
+        "admin"
+
     ) {
 
       return NextResponse.json(
@@ -312,7 +434,7 @@ export async function DELETE(
     })
 
     //////////////////////////////////////////////////////
-    // NOTIFICATION
+    // USER NOTIFICATION
     //////////////////////////////////////////////////////
 
     await prisma.notification.create({
@@ -344,7 +466,10 @@ export async function DELETE(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "DELETE BOOKING ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
