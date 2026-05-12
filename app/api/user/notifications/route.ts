@@ -1,3 +1,5 @@
+// app/api/user/notifications/route.ts
+
 import {
   NextRequest,
   NextResponse,
@@ -7,6 +9,16 @@ import jwt from "jsonwebtoken"
 
 import { prisma }
 from "@/lib/prisma"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
 
 //////////////////////////////////////////////////////
 // GET NOTIFICATIONS
@@ -19,12 +31,35 @@ export async function GET(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -45,14 +80,75 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
 
     //////////////////////////////////////////////////////
-    // QUERY
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          isBlocked: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // CHECK USER
+    //////////////////////////////////////////////////////
+
+    if (!user) {
+
+      return NextResponse.json(
+        {
+          error:
+            "User not found",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // QUERY PARAMS
     //////////////////////////////////////////////////////
 
     const {
@@ -77,6 +173,26 @@ export async function GET(
       searchParams.get(
         "type"
       )
+
+    //////////////////////////////////////////////////////
+    // VALIDATION
+    //////////////////////////////////////////////////////
+
+    if (
+      page < 1 ||
+      limit < 1
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Invalid pagination",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // FETCH NOTIFICATIONS
@@ -137,8 +253,45 @@ export async function GET(
 
           userId:
             decoded.id,
+
+          ...(type && {
+            type,
+          }),
         },
       })
+
+    //////////////////////////////////////////////////////
+    // FORMATTED NOTIFICATIONS
+    //////////////////////////////////////////////////////
+
+    const formattedNotifications =
+      notifications.map(
+        (notification) => ({
+
+          id:
+            notification.id,
+
+          title:
+            notification.title,
+
+          message:
+            notification.message,
+
+          type:
+            notification.type,
+
+          isRead:
+            notification.isRead,
+
+          createdAt:
+            notification.createdAt,
+
+          time:
+            new Date(
+              notification.createdAt
+            ).toLocaleString(),
+        })
+      )
 
     //////////////////////////////////////////////////////
     // RESPONSE
@@ -146,9 +299,12 @@ export async function GET(
 
     return NextResponse.json({
 
-      notifications,
+      success: true,
 
       unreadCount,
+
+      notifications:
+        formattedNotifications,
 
       pagination: {
 
@@ -162,12 +318,22 @@ export async function GET(
           Math.ceil(
             total / limit
           ),
+
+        hasNextPage:
+          page * limit <
+          total,
+
+        hasPrevPage:
+          page > 1,
       },
     })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "NOTIFICATIONS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

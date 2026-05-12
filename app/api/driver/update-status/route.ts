@@ -1,3 +1,5 @@
+// app/api/driver/update-status/route.ts
+
 import {
   NextRequest,
   NextResponse,
@@ -14,11 +16,44 @@ from "@/lib/send-email"
 import BookingEmail
 from "@/emails/booking-email"
 
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// UPDATE STATUS
+//////////////////////////////////////////////////////
+
 export async function POST(
   req: NextRequest
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // TOKEN
@@ -27,6 +62,10 @@ export async function POST(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -47,8 +86,11 @@ export async function POST(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -65,14 +107,47 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     if (
+
       !body.bookingId ||
+
       !body.status
+
     ) {
 
       return NextResponse.json(
         {
           error:
             "Booking ID and status required",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VALID STATUS
+    //////////////////////////////////////////////////////
+
+    const validStatuses = [
+
+      "picked_up",
+
+      "in_transit",
+
+      "delivered",
+    ]
+
+    if (
+      !validStatuses.includes(
+        body.status
+      )
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Invalid status",
         },
         {
           status: 400,
@@ -91,6 +166,21 @@ export async function POST(
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          isBlocked: true,
+
+          isDriverApproved: true,
+
+          name: true,
+
+          email: true,
+        },
       })
 
     //////////////////////////////////////////////////////
@@ -98,15 +188,56 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     if (
+
       !driver ||
+
       driver.role !==
-        "driver"
+      "driver"
+
     ) {
 
       return NextResponse.json(
         {
           error:
             "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED DRIVER
+    //////////////////////////////////////////////////////
+
+    if (
+      driver.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // APPROVAL CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !driver.isDriverApproved
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver not approved",
         },
         {
           status: 403,
@@ -141,6 +272,10 @@ export async function POST(
           },
         },
       })
+
+    //////////////////////////////////////////////////////
+    // BOOKING NOT FOUND
+    //////////////////////////////////////////////////////
 
     if (!booking) {
 
@@ -186,7 +321,7 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
-    // TIMESTAMPS
+    // PICKED UP
     //////////////////////////////////////////////////////
 
     if (
@@ -197,6 +332,10 @@ export async function POST(
       updateData.pickedUpAt =
         new Date()
     }
+
+    //////////////////////////////////////////////////////
+    // DELIVERED
+    //////////////////////////////////////////////////////
 
     if (
       body.status ===
@@ -362,7 +501,10 @@ export async function POST(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "UPDATE STATUS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

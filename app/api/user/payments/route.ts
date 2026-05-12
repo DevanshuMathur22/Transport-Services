@@ -11,6 +11,16 @@ import { prisma }
 from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
 // GET PAYMENTS
 //////////////////////////////////////////////////////
 
@@ -21,12 +31,35 @@ export async function GET(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -47,8 +80,11 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -70,17 +106,54 @@ export async function GET(
           id: true,
 
           role: true,
+
+          isBlocked: true,
         },
       })
 
     //////////////////////////////////////////////////////
-    // CHECK USER
+    // USER NOT FOUND
+    //////////////////////////////////////////////////////
+
+    if (!user) {
+
+      return NextResponse.json(
+        {
+          error:
+            "User not found",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
     //////////////////////////////////////////////////////
 
     if (
-      !user ||
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // ROLE CHECK
+    //////////////////////////////////////////////////////
+
+    if (
       user.role !==
-        "user"
+      "user"
     ) {
 
       return NextResponse.json(
@@ -120,6 +193,59 @@ export async function GET(
           "limit"
         )
       ) || 10
+
+    //////////////////////////////////////////////////////
+    // VALIDATION
+    //////////////////////////////////////////////////////
+
+    if (
+      page < 1 ||
+      limit < 1
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Invalid pagination",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VALID STATUS
+    //////////////////////////////////////////////////////
+
+    const validStatuses = [
+
+      "paid",
+
+      "pending",
+
+      "failed",
+
+      "refunded",
+    ]
+
+    if (
+      status &&
+      !validStatuses.includes(
+        status
+      )
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Invalid payment status",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // PAYMENTS
@@ -207,6 +333,8 @@ export async function GET(
 
     return NextResponse.json({
 
+      success: true,
+
       payments,
 
       pagination: {
@@ -221,12 +349,22 @@ export async function GET(
           Math.ceil(
             total / limit
           ),
+
+        hasNextPage:
+          page * limit <
+          total,
+
+        hasPrevPage:
+          page > 1,
       },
     })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "USER_PAYMENTS_ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

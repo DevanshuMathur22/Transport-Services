@@ -17,6 +17,16 @@ import BookingEmail
 from "@/emails/booking-email"
 
 //////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
 // CREATE PAYMENT
 //////////////////////////////////////////////////////
 
@@ -27,12 +37,35 @@ export async function POST(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -53,8 +86,11 @@ export async function POST(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -86,6 +122,51 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
+    // PAYMENT METHOD VALIDATION
+    //////////////////////////////////////////////////////
+
+    if (
+      !body.paymentMethod
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Payment method required",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // AMOUNT VALIDATION
+    //////////////////////////////////////////////////////
+
+    const amount =
+      Number(body.amount)
+
+    if (
+
+      isNaN(amount) ||
+
+      amount <= 0
+
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Invalid payment amount",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // USER
     //////////////////////////////////////////////////////
 
@@ -96,7 +177,22 @@ export async function POST(
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          name: true,
+
+          email: true,
+
+          isBlocked: true,
+        },
       })
+
+    //////////////////////////////////////////////////////
+    // USER NOT FOUND
+    //////////////////////////////////////////////////////
 
     if (!user) {
 
@@ -107,6 +203,25 @@ export async function POST(
         },
         {
           status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
         }
       )
     }
@@ -124,6 +239,10 @@ export async function POST(
         },
       })
 
+    //////////////////////////////////////////////////////
+    // BOOKING NOT FOUND
+    //////////////////////////////////////////////////////
+
     if (!booking) {
 
       return NextResponse.json(
@@ -138,7 +257,27 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
-    // PAYMENT EXISTS
+    // ACCESS CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      booking.userId !==
+      decoded.id
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // EXISTING PAYMENT
     //////////////////////////////////////////////////////
 
     const existingPayment =
@@ -151,10 +290,23 @@ export async function POST(
       })
 
     //////////////////////////////////////////////////////
-    // UPDATE PAYMENT
+    // PAYMENT STATUS
+    //////////////////////////////////////////////////////
+
+    const paymentStatus =
+
+      body.status ||
+      "paid"
+
+    //////////////////////////////////////////////////////
+    // PAYMENT
     //////////////////////////////////////////////////////
 
     let payment
+
+    //////////////////////////////////////////////////////
+    // UPDATE PAYMENT
+    //////////////////////////////////////////////////////
 
     if (existingPayment) {
 
@@ -168,10 +320,7 @@ export async function POST(
 
           data: {
 
-            amount:
-              Number(
-                body.amount
-              ),
+            amount,
 
             paymentMethod:
               body.paymentMethod,
@@ -180,8 +329,7 @@ export async function POST(
               `TXN${Date.now()}`,
 
             status:
-              body.status ||
-              "completed",
+              paymentStatus,
           },
         })
 
@@ -202,10 +350,7 @@ export async function POST(
             bookingId:
               booking.id,
 
-            amount:
-              Number(
-                body.amount
-              ),
+            amount,
 
             paymentMethod:
               body.paymentMethod,
@@ -214,14 +359,13 @@ export async function POST(
               `TXN${Date.now()}`,
 
             status:
-              body.status ||
-              "completed",
+              paymentStatus,
           },
         })
     }
 
     //////////////////////////////////////////////////////
-    // USER NOTIFICATION
+    // NOTIFICATION
     //////////////////////////////////////////////////////
 
     await prisma.notification.create({
@@ -246,31 +390,40 @@ export async function POST(
     // EMAIL
     //////////////////////////////////////////////////////
 
-    await sendEmail({
+    if (user.email) {
 
-      to:
-        user.email,
+      await sendEmail({
 
-      subject:
-        "Payment Successful",
+        to:
+          user.email,
 
-      react:
-        BookingEmail({
+        subject:
+          "Payment Successful",
 
-          trackingId:
-            booking.trackingId,
+        react:
+          BookingEmail({
 
-          customerName:
-            user.name,
-        }),
-    })
+            trackingId:
+              booking.trackingId,
+
+            customerName:
+              user.name,
+          }),
+      })
+    }
 
     //////////////////////////////////////////////////////
     // RESPONSE
     //////////////////////////////////////////////////////
 
     return NextResponse.json(
-      payment,
+
+      {
+        success: true,
+
+        payment,
+      },
+
       {
         status: 201,
       }
@@ -279,7 +432,7 @@ export async function POST(
   } catch (error) {
 
     console.log(
-      "PAYMENT_ERROR",
+      "PAYMENT_ERROR:",
       error
     )
 

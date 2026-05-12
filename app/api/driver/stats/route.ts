@@ -10,11 +10,44 @@ import jwt from "jsonwebtoken"
 import { prisma }
 from "@/lib/prisma"
 
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// GET DRIVER STATS
+//////////////////////////////////////////////////////
+
 export async function GET(
   req: NextRequest
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // TOKEN
@@ -23,6 +56,10 @@ export async function GET(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -43,8 +80,11 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -60,6 +100,21 @@ export async function GET(
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          name: true,
+
+          isBlocked: true,
+
+          isDriverApproved: true,
+
+          isOnline: true,
+        },
       })
 
     //////////////////////////////////////////////////////
@@ -67,9 +122,12 @@ export async function GET(
     //////////////////////////////////////////////////////
 
     if (
+
       !driver ||
+
       driver.role !==
-        "driver"
+      "driver"
+
     ) {
 
       return NextResponse.json(
@@ -84,23 +142,79 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
-    // PENDING ORDERS
+    // BLOCKED DRIVER
+    //////////////////////////////////////////////////////
+
+    if (
+      driver.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // DRIVER APPROVAL
+    //////////////////////////////////////////////////////
+
+    if (
+      !driver.isDriverApproved
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver not approved",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // AVAILABLE ORDERS
     //////////////////////////////////////////////////////
 
     const availableOrders =
       await prisma.booking.findMany({
 
         where: {
+
           status:
             "pending",
+
+          driverId:
+            null,
         },
 
         orderBy: {
+
           createdAt:
             "desc",
         },
 
         take: 5,
+
+        include: {
+
+          user: {
+
+            select: {
+
+              name: true,
+
+              phone: true,
+            },
+          },
+        },
       })
 
     //////////////////////////////////////////////////////
@@ -118,16 +232,32 @@ export async function GET(
           status: {
 
             in: [
+
               "accepted",
+
               "picked_up",
+
               "in_transit",
             ],
           },
         },
 
+        include: {
+
+          user: {
+
+            select: {
+
+              name: true,
+
+              phone: true,
+            },
+          },
+        },
+
         orderBy: {
 
-          createdAt:
+          updatedAt:
             "desc",
         },
       })
@@ -157,52 +287,155 @@ export async function GET(
       })
 
     //////////////////////////////////////////////////////
-    // EARNINGS
+    // TOTAL EARNINGS
     //////////////////////////////////////////////////////
 
     const earnings =
       deliveredBookings.reduce(
+
         (
           total,
           item
         ) =>
+
           total +
+
           (
             item.driverEarning || 0
           ),
+
         0
       )
+
+    //////////////////////////////////////////////////////
+    // TODAY DELIVERIES
+    //////////////////////////////////////////////////////
+
+    const today =
+      new Date()
+
+    today.setHours(
+      0,
+      0,
+      0,
+      0
+    )
+
+    const todayDeliveries =
+      deliveredBookings.filter(
+        (item) =>
+
+          item.deliveredAt &&
+
+          new Date(
+            item.deliveredAt
+          ) >= today
+      )
+
+    //////////////////////////////////////////////////////
+    // TODAY EARNINGS
+    //////////////////////////////////////////////////////
+
+    const todayEarnings =
+      todayDeliveries.reduce(
+
+        (
+          total,
+          item
+        ) =>
+
+          total +
+
+          (
+            item.driverEarning || 0
+          ),
+
+        0
+      )
+
+    //////////////////////////////////////////////////////
+    // TOTAL DELIVERIES
+    //////////////////////////////////////////////////////
+
+    const totalDeliveries =
+      deliveredBookings.length
+
+    //////////////////////////////////////////////////////
+    // SUCCESS RATE
+    //////////////////////////////////////////////////////
+
+    const allDriverBookings =
+      await prisma.booking.findMany({
+
+        where: {
+          driverId:
+            driver.id,
+        },
+
+        select: {
+          status: true,
+        },
+      })
+
+    const successRate =
+      allDriverBookings.length > 0
+
+        ? Math.round(
+
+            (
+              deliveredBookings.length /
+
+              allDriverBookings.length
+            ) * 100
+          )
+
+        : 0
+
+    //////////////////////////////////////////////////////
+    // RECENT ACTIVITIES
+    //////////////////////////////////////////////////////
+
+    const recentTracking =
+      await prisma.tracking.findMany({
+
+        where: {
+
+          booking: {
+
+            driverId:
+              driver.id,
+          },
+        },
+
+        orderBy: {
+
+          createdAt:
+            "desc",
+        },
+
+        take: 5,
+      })
 
     //////////////////////////////////////////////////////
     // ACTIVITIES
     //////////////////////////////////////////////////////
 
-    const activities = [
+    const activities =
+      recentTracking.map(
+        (item) => ({
 
-      {
-        message:
-          "Accepted a new shipment order",
+          message:
+            item.message,
 
-        time:
-          "5 min ago",
-      },
+          location:
+            item.location,
 
-      {
-        message:
-          "Shipment picked up successfully",
-
-        time:
-          "20 min ago",
-      },
-
-      {
-        message:
-          "Delivery completed successfully",
-
-        time:
-          "1 hour ago",
-      },
-    ]
+          time:
+            new Date(
+              item.createdAt
+            ).toLocaleString(),
+        })
+      )
 
     //////////////////////////////////////////////////////
     // RESPONSE
@@ -210,13 +443,34 @@ export async function GET(
 
     return NextResponse.json({
 
-      pendingOrders:
-        availableOrders.length,
+      success: true,
 
-      activeDeliveries:
-        activeDeliveries.length,
+      driver: {
 
-      earnings,
+        name:
+          driver.name,
+
+        isOnline:
+          driver.isOnline,
+      },
+
+      stats: {
+
+        pendingOrders:
+          availableOrders.length,
+
+        activeDeliveries:
+          activeDeliveries.length,
+
+        completedDeliveries:
+          totalDeliveries,
+
+        successRate,
+
+        earnings,
+
+        todayEarnings,
+      },
 
       availableOrders,
 
@@ -227,7 +481,10 @@ export async function GET(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "DRIVER STATS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

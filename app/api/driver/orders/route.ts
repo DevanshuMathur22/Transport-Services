@@ -10,11 +10,44 @@ import jwt from "jsonwebtoken"
 import { prisma }
 from "@/lib/prisma"
 
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// GET DRIVER ORDERS
+//////////////////////////////////////////////////////
+
 export async function GET(
   req: NextRequest
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // TOKEN
@@ -23,6 +56,10 @@ export async function GET(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -43,8 +80,11 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -60,6 +100,19 @@ export async function GET(
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          isBlocked: true,
+
+          isDriverApproved: true,
+
+          isOnline: true,
+        },
       })
 
     //////////////////////////////////////////////////////
@@ -67,15 +120,56 @@ export async function GET(
     //////////////////////////////////////////////////////
 
     if (
+
       !driver ||
+
       driver.role !==
-        "driver"
+      "driver"
+
     ) {
 
       return NextResponse.json(
         {
           error:
             "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED DRIVER
+    //////////////////////////////////////////////////////
+
+    if (
+      driver.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // DRIVER APPROVAL
+    //////////////////////////////////////////////////////
+
+    if (
+      !driver.isDriverApproved
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver not approved",
         },
         {
           status: 403,
@@ -120,7 +214,36 @@ export async function GET(
           // PAYMENT
           //////////////////////////////////////////////////////
 
-          payment: true,
+          payment: {
+
+            select: {
+
+              id: true,
+
+              amount: true,
+
+              status: true,
+
+              paymentMethod: true,
+
+              transactionId: true,
+            },
+          },
+
+          //////////////////////////////////////////////////////
+          // TRACKING
+          //////////////////////////////////////////////////////
+
+          tracking: {
+
+            orderBy: {
+
+              createdAt:
+                "desc",
+            },
+
+            take: 1,
+          },
         },
 
         orderBy: {
@@ -131,16 +254,59 @@ export async function GET(
       })
 
     //////////////////////////////////////////////////////
+    // STATS
+    //////////////////////////////////////////////////////
+
+    const totalOrders =
+      orders.length
+
+    const activeOrders =
+      orders.filter(
+        (item) =>
+
+          item.status ===
+          "accepted" ||
+
+          item.status ===
+          "picked_up" ||
+
+          item.status ===
+          "in_transit"
+      ).length
+
+    const completedOrders =
+      orders.filter(
+        (item) =>
+          item.status ===
+          "delivered"
+      ).length
+
+    //////////////////////////////////////////////////////
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      orders
-    )
+    return NextResponse.json({
+
+      success: true,
+
+      stats: {
+
+        totalOrders,
+
+        activeOrders,
+
+        completedOrders,
+      },
+
+      orders,
+    })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "DRIVER ORDERS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

@@ -10,6 +10,16 @@ import jwt from "jsonwebtoken"
 import { prisma } from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
 // GET SETTINGS
 //////////////////////////////////////////////////////
 
@@ -20,12 +30,35 @@ export async function GET(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -46,8 +79,11 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -63,7 +99,22 @@ export async function GET(
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          isVerified: true,
+
+          isBlocked: true,
+
+          role: true,
+        },
       })
+
+    //////////////////////////////////////////////////////
+    // USER NOT FOUND
+    //////////////////////////////////////////////////////
 
     if (!user) {
 
@@ -74,6 +125,25 @@ export async function GET(
         },
         {
           status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
         }
       )
     }
@@ -99,13 +169,19 @@ export async function GET(
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      settings
-    )
+    return NextResponse.json({
+
+      success: true,
+
+      settings,
+    })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "SETTINGS_FETCH_ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
@@ -130,12 +206,35 @@ export async function PUT(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -156,11 +255,70 @@ export async function PUT(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
+
+    //////////////////////////////////////////////////////
+    // FIND USER
+    //////////////////////////////////////////////////////
+
+    const existingUser =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          isBlocked: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // USER NOT FOUND
+    //////////////////////////////////////////////////////
+
+    if (!existingUser) {
+
+      return NextResponse.json(
+        {
+          error:
+            "User not found",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      existingUser.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // BODY
@@ -183,7 +341,31 @@ export async function PUT(
       data: {
 
         isVerified:
-          body.twoFactor,
+          Boolean(
+            body.twoFactor
+          ),
+      },
+    })
+
+    //////////////////////////////////////////////////////
+    // NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          decoded.id,
+
+        title:
+          "Settings Updated",
+
+        message:
+          "Your account settings were updated successfully.",
+
+        type:
+          "settings",
       },
     })
 
@@ -198,19 +380,28 @@ export async function PUT(
       settings: {
 
         notifications:
-          body.notifications,
+          Boolean(
+            body.notifications
+          ),
 
         darkMode:
-          body.darkMode,
+          Boolean(
+            body.darkMode
+          ),
 
         twoFactor:
-          body.twoFactor,
+          Boolean(
+            body.twoFactor
+          ),
       },
     })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "SETTINGS_UPDATE_ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

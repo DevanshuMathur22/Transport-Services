@@ -1,3 +1,5 @@
+// app/api/user/stats/route.ts
+
 import {
   NextRequest,
   NextResponse,
@@ -7,11 +9,44 @@ import jwt from "jsonwebtoken"
 
 import { prisma } from "@/lib/prisma"
 
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// GET USER STATS
+//////////////////////////////////////////////////////
+
 export async function GET(
   req: NextRequest
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // TOKEN
@@ -20,6 +55,10 @@ export async function GET(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -40,11 +79,76 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
+
+    //////////////////////////////////////////////////////
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          isBlocked: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // CHECK USER
+    //////////////////////////////////////////////////////
+
+    if (
+      !user ||
+      user.role !==
+        "user"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // USER BOOKINGS
@@ -63,11 +167,18 @@ export async function GET(
       await prisma.booking.count({
 
         where: {
+
           userId:
             decoded.id,
 
-          status:
-            "in_transit",
+          status: {
+
+            in: [
+              "accepted",
+              "picked_up",
+              "in_transit",
+            ],
+          },
         },
       })
 
@@ -75,6 +186,7 @@ export async function GET(
       await prisma.booking.count({
 
         where: {
+
           userId:
             decoded.id,
 
@@ -94,15 +206,27 @@ export async function GET(
           userId:
             decoded.id,
         },
+
+        select: {
+          amount: true,
+        },
       })
+
+    //////////////////////////////////////////////////////
+    // TOTAL SPENT
+    //////////////////////////////////////////////////////
 
     const totalSpent =
       payments.reduce(
+
         (
-          acc: number,
+          acc,
           item
         ) =>
-          acc + item.amount,
+
+          acc +
+          item.amount,
+
         0
       )
 
@@ -111,15 +235,27 @@ export async function GET(
     //////////////////////////////////////////////////////
 
     return NextResponse.json({
-      totalBookings,
-      activeDeliveries,
-      completedOrders,
-      totalSpent,
+
+      success: true,
+
+      stats: {
+
+        totalBookings,
+
+        activeDeliveries,
+
+        completedOrders,
+
+        totalSpent,
+      },
     })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "USER_STATS_ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

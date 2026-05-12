@@ -17,6 +17,16 @@ import BookingEmail
 from "@/emails/booking-email"
 
 //////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
 // PAY NOW
 //////////////////////////////////////////////////////
 
@@ -27,12 +37,35 @@ export async function POST(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -53,8 +86,11 @@ export async function POST(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -102,6 +138,25 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
+    // INVALID AMOUNT
+    //////////////////////////////////////////////////////
+
+    if (
+      Number(amount) <= 0
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Invalid amount",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // USER
     //////////////////////////////////////////////////////
 
@@ -112,7 +167,24 @@ export async function POST(
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          name: true,
+
+          email: true,
+
+          role: true,
+
+          isBlocked: true,
+        },
       })
+
+    //////////////////////////////////////////////////////
+    // USER NOT FOUND
+    //////////////////////////////////////////////////////
 
     if (!user) {
 
@@ -123,6 +195,45 @@ export async function POST(
         },
         {
           status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // ROLE CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      user.role !==
+      "user"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
         }
       )
     }
@@ -143,6 +254,10 @@ export async function POST(
             decoded.id,
         },
       })
+
+    //////////////////////////////////////////////////////
+    // BOOKING NOT FOUND
+    //////////////////////////////////////////////////////
 
     if (!booking) {
 
@@ -170,6 +285,13 @@ export async function POST(
       })
 
     //////////////////////////////////////////////////////
+    // TRANSACTION ID
+    //////////////////////////////////////////////////////
+
+    const transactionId =
+      `TXN${Date.now()}`
+
+    //////////////////////////////////////////////////////
     // UPSERT PAYMENT
     //////////////////////////////////////////////////////
 
@@ -190,8 +312,7 @@ export async function POST(
           status:
             "paid",
 
-          transactionId:
-            `TXN${Date.now()}`,
+          transactionId,
         },
 
         create: {
@@ -209,8 +330,7 @@ export async function POST(
           status:
             "paid",
 
-          transactionId:
-            `TXN${Date.now()}`,
+          transactionId,
         },
       })
 
@@ -308,7 +428,10 @@ export async function POST(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "PAYMENT_ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

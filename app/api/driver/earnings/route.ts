@@ -1,44 +1,178 @@
 // app/api/driver/earnings/route.ts
 
-import { NextResponse } from "next/server"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
 
-import { prisma } from "@/lib/prisma"
+import jwt from "jsonwebtoken"
 
-export async function GET() {
+import { prisma }
+from "@/lib/prisma"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// GET DRIVER EARNINGS
+//////////////////////////////////////////////////////
+
+export async function GET(
+  req: NextRequest
+) {
 
   try {
 
     //////////////////////////////////////////////////////
-    // TEMP DRIVER
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+
+        token,
+
+        process.env.JWT_SECRET
+
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // DRIVER
     //////////////////////////////////////////////////////
 
     const driver =
-      await prisma.user.findFirst({
+      await prisma.user.findUnique({
 
         where: {
-          role:
-            "driver",
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          isBlocked: true,
+
+          isDriverApproved: true,
         },
       })
 
     //////////////////////////////////////////////////////
-    // NO DRIVER
+    // CHECK DRIVER
     //////////////////////////////////////////////////////
 
-    if (!driver) {
+    if (
 
-      return NextResponse.json({
+      !driver ||
 
-        totalEarnings: 0,
+      driver.role !==
+      "driver"
 
-        todayEarnings: 0,
+    ) {
 
-        completedDeliveries: 0,
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
 
-        averageEarnings: 0,
+    //////////////////////////////////////////////////////
+    // BLOCKED DRIVER
+    //////////////////////////////////////////////////////
 
-        deliveries: [],
-      })
+    if (
+      driver.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // DRIVER APPROVAL
+    //////////////////////////////////////////////////////
+
+    if (
+      !driver.isDriverApproved
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver not approved",
+        },
+        {
+          status: 403,
+        }
+      )
     }
 
     //////////////////////////////////////////////////////
@@ -57,7 +191,21 @@ export async function GET() {
             "delivered",
         },
 
+        include: {
+
+          user: {
+
+            select: {
+
+              name: true,
+
+              phone: true,
+            },
+          },
+        },
+
         orderBy: {
+
           deliveredAt:
             "desc",
         },
@@ -69,73 +217,186 @@ export async function GET() {
 
     const totalEarnings =
       deliveries.reduce(
+
         (
           total,
           item
         ) =>
+
           total +
+
           (
             item.driverEarning || 0
           ),
+
         0
       )
 
     //////////////////////////////////////////////////////
-    // TODAY EARNINGS
+    // TODAY START
     //////////////////////////////////////////////////////
 
     const today =
       new Date()
 
     today.setHours(
+
       0,
+
       0,
+
       0,
+
       0
     )
 
+    //////////////////////////////////////////////////////
+    // TODAY DELIVERIES
+    //////////////////////////////////////////////////////
+
     const todayDeliveries =
       deliveries.filter(
-        (
-          item
-        ) =>
+
+        (item) =>
+
           item.deliveredAt &&
+
           new Date(
             item.deliveredAt
           ) >= today
       )
 
+    //////////////////////////////////////////////////////
+    // TODAY EARNINGS
+    //////////////////////////////////////////////////////
+
     const todayEarnings =
       todayDeliveries.reduce(
+
         (
           total,
           item
         ) =>
+
           total +
+
           (
             item.driverEarning || 0
           ),
+
         0
       )
 
     //////////////////////////////////////////////////////
-    // COMPLETED
+    // COMPLETED DELIVERIES
     //////////////////////////////////////////////////////
 
     const completedDeliveries =
       deliveries.length
 
     //////////////////////////////////////////////////////
-    // AVERAGE
+    // AVERAGE EARNINGS
     //////////////////////////////////////////////////////
 
     const averageEarnings =
       completedDeliveries > 0
+
         ? Math.round(
+
             totalEarnings /
+
             completedDeliveries
           )
+
         : 0
+
+    //////////////////////////////////////////////////////
+    // THIS WEEK
+    //////////////////////////////////////////////////////
+
+    const sevenDaysAgo =
+      new Date()
+
+    sevenDaysAgo.setDate(
+      sevenDaysAgo.getDate() - 7
+    )
+
+    const weeklyEarnings =
+      deliveries
+        .filter(
+          (item) =>
+
+            item.deliveredAt &&
+
+            new Date(
+              item.deliveredAt
+            ) >= sevenDaysAgo
+        )
+        .reduce(
+          (
+            total,
+            item
+          ) =>
+
+            total +
+
+            (
+              item.driverEarning || 0
+            ),
+
+          0
+        )
+
+    //////////////////////////////////////////////////////
+    // THIS MONTH
+    //////////////////////////////////////////////////////
+
+    const currentMonth =
+      new Date().getMonth()
+
+    const currentYear =
+      new Date().getFullYear()
+
+    const monthlyEarnings =
+      deliveries
+        .filter(
+          (item) => {
+
+            if (
+              !item.deliveredAt
+            ) {
+              return false
+            }
+
+            const date =
+              new Date(
+                item.deliveredAt
+              )
+
+            return (
+
+              date.getMonth() ===
+              currentMonth &&
+
+              date.getFullYear() ===
+              currentYear
+            )
+          }
+        )
+        .reduce(
+          (
+            total,
+            item
+          ) =>
+
+            total +
+
+            (
+              item.driverEarning || 0
+            ),
+
+          0
+        )
 
     //////////////////////////////////////////////////////
     // RESPONSE
@@ -143,9 +404,15 @@ export async function GET() {
 
     return NextResponse.json({
 
+      success: true,
+
       totalEarnings,
 
       todayEarnings,
+
+      weeklyEarnings,
+
+      monthlyEarnings,
 
       completedDeliveries,
 
@@ -156,7 +423,10 @@ export async function GET() {
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "EARNINGS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

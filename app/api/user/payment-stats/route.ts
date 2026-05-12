@@ -11,6 +11,16 @@ import { prisma }
 from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
 // PAYMENT STATS
 //////////////////////////////////////////////////////
 
@@ -21,12 +31,35 @@ export async function GET(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -47,8 +80,11 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -70,6 +106,8 @@ export async function GET(
           id: true,
 
           role: true,
+
+          isBlocked: true,
         },
       })
 
@@ -77,10 +115,45 @@ export async function GET(
     // CHECK USER
     //////////////////////////////////////////////////////
 
+    if (!user) {
+
+      return NextResponse.json(
+        {
+          error:
+            "User not found",
+        },
+        {
+          status: 404,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
     if (
-      !user ||
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // ROLE CHECK
+    //////////////////////////////////////////////////////
+
+    if (
       user.role !==
-        "user"
+      "user"
     ) {
 
       return NextResponse.json(
@@ -194,18 +267,23 @@ export async function GET(
 
     return NextResponse.json({
 
-      totalSpent,
+      success: true,
 
-      successful,
+      stats: {
 
-      pending,
+        totalSpent,
 
-      refunded,
+        successful,
 
-      failed,
+        pending,
 
-      totalTransactions:
-        payments.length,
+        refunded,
+
+        failed,
+
+        totalTransactions:
+          payments.length,
+      },
 
       lastPayment,
 
@@ -214,7 +292,10 @@ export async function GET(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "PAYMENT_STATS_ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

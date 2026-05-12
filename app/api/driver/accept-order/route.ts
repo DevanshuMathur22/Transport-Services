@@ -1,6 +1,14 @@
-import { NextResponse } from "next/server"
+// app/api/driver/accept-order/route.ts
 
-import { prisma } from "@/lib/prisma"
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server"
+
+import jwt from "jsonwebtoken"
+
+import { prisma }
+from "@/lib/prisma"
 
 import { sendEmail }
 from "@/lib/send-email"
@@ -8,11 +16,173 @@ from "@/lib/send-email"
 import BookingEmail
 from "@/emails/booking-email"
 
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// ACCEPT ORDER
+//////////////////////////////////////////////////////
+
 export async function POST(
-  req: Request
+  req: NextRequest
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // TOKEN
+    //////////////////////////////////////////////////////
+
+    const token =
+      req.cookies.get("token")
+        ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
+
+    if (!token) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
+    //////////////////////////////////////////////////////
+
+    const decoded =
+      jwt.verify(
+
+        token,
+
+        process.env.JWT_SECRET
+
+      ) as {
+        id: string
+      }
+
+    //////////////////////////////////////////////////////
+    // DRIVER
+    //////////////////////////////////////////////////////
+
+    const driver =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          isBlocked: true,
+
+          isDriverApproved: true,
+
+          name: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // DRIVER CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !driver ||
+      driver.role !==
+        "driver"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Only drivers can accept orders",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED DRIVER
+    //////////////////////////////////////////////////////
+
+    if (
+      driver.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // DRIVER APPROVAL
+    //////////////////////////////////////////////////////
+
+    if (
+      !driver.isDriverApproved
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver not approved",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
 
     const body =
       await req.json()
@@ -22,14 +192,15 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     if (
-      !body.bookingId ||
-      !body.driverId
+
+      !body.bookingId
+
     ) {
 
       return NextResponse.json(
         {
           error:
-            "Booking ID and Driver ID required",
+            "Booking ID required",
         },
         {
           status: 400,
@@ -64,6 +235,8 @@ export async function POST(
           toCity: true,
 
           price: true,
+
+          status: true,
 
           user: {
 
@@ -114,6 +287,26 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
+    // INVALID STATUS
+    //////////////////////////////////////////////////////
+
+    if (
+      booking.status !==
+      "pending"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Booking cannot be accepted",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // UPDATE BOOKING
     //////////////////////////////////////////////////////
 
@@ -128,7 +321,7 @@ export async function POST(
         data: {
 
           driverId:
-            body.driverId,
+            driver.id,
 
           status:
             "accepted",
@@ -141,7 +334,9 @@ export async function POST(
           //////////////////////////////////////////////////////
 
           driverEarning:
-            booking.price * 0.8,
+            Number(
+              booking.price || 0
+            ) * 0.8,
         },
       })
 
@@ -187,6 +382,28 @@ export async function POST(
     })
 
     //////////////////////////////////////////////////////
+    // DRIVER NOTIFICATION
+    //////////////////////////////////////////////////////
+
+    await prisma.notification.create({
+
+      data: {
+
+        userId:
+          driver.id,
+
+        title:
+          "Order Accepted",
+
+        message:
+          `You accepted shipment ${booking.trackingId}`,
+
+        type:
+          "driver",
+      },
+    })
+
+    //////////////////////////////////////////////////////
     // EMAIL
     //////////////////////////////////////////////////////
 
@@ -228,7 +445,10 @@ export async function POST(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "ACCEPT ORDER ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

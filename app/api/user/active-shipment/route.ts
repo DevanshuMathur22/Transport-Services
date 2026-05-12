@@ -9,11 +9,44 @@ import {
 
 import jwt from "jsonwebtoken"
 
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
+// GET ACTIVE SHIPMENT
+//////////////////////////////////////////////////////
+
 export async function GET(
   req: NextRequest
 ) {
 
   try {
+
+    //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // TOKEN
@@ -22,6 +55,10 @@ export async function GET(
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -42,11 +79,79 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
+
+    //////////////////////////////////////////////////////
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          isBlocked: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // USER CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+
+      !user ||
+
+      user.role !==
+      "user"
+
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // USER ACTIVE BOOKING
@@ -61,14 +166,17 @@ export async function GET(
             decoded.id,
 
           OR: [
+
             {
               status:
                 "accepted",
             },
+
             {
               status:
                 "picked_up",
             },
+
             {
               status:
                 "in_transit",
@@ -76,7 +184,43 @@ export async function GET(
           ],
         },
 
+        include: {
+
+          driver: {
+
+            select: {
+
+              id: true,
+
+              name: true,
+
+              phone: true,
+
+              vehicleType: true,
+
+              vehicleNumber: true,
+
+              latitude: true,
+
+              longitude: true,
+            },
+          },
+
+          payment: {
+
+            select: {
+
+              amount: true,
+
+              status: true,
+
+              paymentMethod: true,
+            },
+          },
+        },
+
         orderBy: {
+
           createdAt:
             "desc",
         },
@@ -88,9 +232,13 @@ export async function GET(
 
     if (!booking) {
 
-      return NextResponse.json(
-        null
-      )
+      return NextResponse.json({
+
+        success: true,
+
+        shipment:
+          null,
+      })
     }
 
     //////////////////////////////////////////////////////
@@ -103,6 +251,7 @@ export async function GET(
       booking.status ===
       "accepted"
     ) {
+
       progress = 25
     }
 
@@ -110,6 +259,7 @@ export async function GET(
       booking.status ===
       "picked_up"
     ) {
+
       progress = 55
     }
 
@@ -117,7 +267,16 @@ export async function GET(
       booking.status ===
       "in_transit"
     ) {
+
       progress = 80
+    }
+
+    if (
+      booking.status ===
+      "delivered"
+    ) {
+
+      progress = 100
     }
 
     //////////////////////////////////////////////////////
@@ -126,34 +285,118 @@ export async function GET(
 
     return NextResponse.json({
 
-      id:
-        booking.id,
+      success: true,
 
-      trackingId:
-        booking.trackingId,
+      shipment: {
 
-      fromCity:
-        booking.fromCity,
+        id:
+          booking.id,
 
-      toCity:
-        booking.toCity,
+        trackingId:
+          booking.trackingId,
 
-      vehicleType:
-        booking.vehicleType,
+        fromCity:
+          booking.fromCity,
 
-      status:
-        booking.status,
+        toCity:
+          booking.toCity,
 
-      progress,
+        pickupAddress:
+          booking.pickupAddress,
 
-      eta:
-        booking.estimatedTime ||
-        "2h 30m",
+        deliveryAddress:
+          booking.deliveryAddress,
+
+        vehicleType:
+          booking.vehicleType,
+
+        packageType:
+          booking.packageType,
+
+        status:
+          booking.status,
+
+        progress,
+
+        eta:
+          booking.estimatedTime ||
+          "2h 30m",
+
+        distance:
+          booking.distance,
+
+        weight:
+          booking.weight,
+
+        price:
+          booking.price,
+
+        pickupDate:
+          booking.pickupDate,
+
+        pickupTime:
+          booking.pickupTime,
+
+        //////////////////////////////////////////////////////
+        // DRIVER
+        //////////////////////////////////////////////////////
+
+        driver:
+          booking.driver
+            ? {
+
+                id:
+                  booking.driver.id,
+
+                name:
+                  booking.driver.name,
+
+                phone:
+                  booking.driver.phone,
+
+                vehicleType:
+                  booking.driver.vehicleType,
+
+                vehicleNumber:
+                  booking.driver.vehicleNumber,
+
+                latitude:
+                  booking.driver.latitude,
+
+                longitude:
+                  booking.driver.longitude,
+              }
+
+            : null,
+
+        //////////////////////////////////////////////////////
+        // PAYMENT
+        //////////////////////////////////////////////////////
+
+        payment:
+          booking.payment
+            ? {
+
+                amount:
+                  booking.payment.amount,
+
+                status:
+                  booking.payment.status,
+
+                paymentMethod:
+                  booking.payment.paymentMethod,
+              }
+
+            : null,
+      },
     })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "ACTIVE SHIPMENT ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

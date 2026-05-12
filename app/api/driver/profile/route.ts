@@ -11,6 +11,16 @@ import { prisma }
 from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
+
+//////////////////////////////////////////////////////
 // GET DRIVER PROFILE
 //////////////////////////////////////////////////////
 
@@ -21,12 +31,35 @@ export async function GET(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -47,8 +80,11 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -71,6 +107,12 @@ export async function GET(
 
           role: true,
 
+          isBlocked: true,
+
+          isDriverApproved: true,
+
+          isOnline: true,
+
           name: true,
 
           email: true,
@@ -82,6 +124,16 @@ export async function GET(
           vehicleType: true,
 
           vehicleNumber: true,
+
+          licenseUrl: true,
+
+          rcUrl: true,
+
+          aadhaarUrl: true,
+
+          insuranceUrl: true,
+
+          createdAt: true,
         },
       })
 
@@ -90,9 +142,12 @@ export async function GET(
     //////////////////////////////////////////////////////
 
     if (
+
       !driver ||
+
       driver.role !==
-        "driver"
+      "driver"
+
     ) {
 
       return NextResponse.json(
@@ -107,16 +162,41 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
+    // BLOCKED DRIVER
+    //////////////////////////////////////////////////////
+
+    if (
+      driver.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // RESPONSE
     //////////////////////////////////////////////////////
 
-    return NextResponse.json(
-      driver
-    )
+    return NextResponse.json({
+
+      success: true,
+
+      driver,
+    })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "GET DRIVER PROFILE ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
@@ -141,12 +221,35 @@ export async function PUT(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -167,8 +270,11 @@ export async function PUT(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -191,6 +297,17 @@ export async function PUT(
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          isBlocked: true,
+
+          name: true,
+        },
       })
 
     //////////////////////////////////////////////////////
@@ -198,15 +315,37 @@ export async function PUT(
     //////////////////////////////////////////////////////
 
     if (
+
       !driver ||
+
       driver.role !==
-        "driver"
+      "driver"
+
     ) {
 
       return NextResponse.json(
         {
           error:
             "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED DRIVER
+    //////////////////////////////////////////////////////
+
+    if (
+      driver.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver account blocked",
         },
         {
           status: 403,
@@ -229,19 +368,38 @@ export async function PUT(
         data: {
 
           name:
-            body.name,
+            body.name || "",
 
           phone:
-            body.phone,
+            body.phone || "",
 
           city:
-            body.city,
+            body.city || "",
 
           vehicleType:
-            body.vehicleType,
+            body.vehicleType || "",
 
           vehicleNumber:
-            body.vehicleNumber,
+            body.vehicleNumber || "",
+        },
+
+        select: {
+
+          id: true,
+
+          name: true,
+
+          email: true,
+
+          phone: true,
+
+          city: true,
+
+          vehicleType: true,
+
+          vehicleNumber: true,
+
+          updatedAt: true,
         },
       })
 
@@ -268,7 +426,7 @@ export async function PUT(
     })
 
     //////////////////////////////////////////////////////
-    // ADMIN NOTIFICATION
+    // ADMIN
     //////////////////////////////////////////////////////
 
     const admin =
@@ -278,7 +436,16 @@ export async function PUT(
           role:
             "admin",
         },
+
+        select: {
+
+          id: true,
+        },
       })
+
+    //////////////////////////////////////////////////////
+    // ADMIN NOTIFICATION
+    //////////////////////////////////////////////////////
 
     if (admin) {
 
@@ -315,7 +482,10 @@ export async function PUT(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "UPDATE DRIVER PROFILE ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {

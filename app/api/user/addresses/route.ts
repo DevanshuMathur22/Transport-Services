@@ -1,3 +1,5 @@
+// app/api/user/addresses/route.ts
+
 import {
   NextRequest,
   NextResponse,
@@ -5,7 +7,18 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
 
 //////////////////////////////////////////////////////
 // GET ADDRESSES
@@ -18,12 +31,35 @@ export async function GET(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -44,11 +80,79 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
+
+    //////////////////////////////////////////////////////
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          isBlocked: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // USER CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+
+      !user ||
+
+      user.role !==
+      "user"
+
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // GET ADDRESSES
@@ -63,18 +167,32 @@ export async function GET(
         },
 
         orderBy: {
+
+          isDefault:
+            "desc",
+
           createdAt:
             "desc",
         },
       })
 
-    return NextResponse.json(
-      addresses
-    )
+    //////////////////////////////////////////////////////
+    // RESPONSE
+    //////////////////////////////////////////////////////
+
+    return NextResponse.json({
+
+      success: true,
+
+      addresses,
+    })
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "GET ADDRESSES ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
@@ -99,12 +217,35 @@ export async function POST(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -125,11 +266,79 @@ export async function POST(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
+
+    //////////////////////////////////////////////////////
+    // USER
+    //////////////////////////////////////////////////////
+
+    const user =
+      await prisma.user.findUnique({
+
+        where: {
+          id:
+            decoded.id,
+        },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          isBlocked: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // USER CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+
+      !user ||
+
+      user.role !==
+      "user"
+
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // BODY
@@ -143,10 +352,15 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     if (
+
       !body.name ||
+
       !body.address ||
+
       !body.city ||
+
       !body.pincode
+
     ) {
 
       return NextResponse.json(
@@ -161,6 +375,61 @@ export async function POST(
     }
 
     //////////////////////////////////////////////////////
+    // CLEAN VALUES
+    //////////////////////////////////////////////////////
+
+    const name =
+      body.name.trim()
+
+    const addressText =
+      body.address.trim()
+
+    const city =
+      body.city.trim()
+
+    const pincode =
+      body.pincode.trim()
+
+    //////////////////////////////////////////////////////
+    // PINCODE VALIDATION
+    //////////////////////////////////////////////////////
+
+    if (
+      pincode.length < 4
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Invalid pincode",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // DEFAULT ADDRESS
+    //////////////////////////////////////////////////////
+
+    if (body.isDefault) {
+
+      await prisma.address.updateMany({
+
+        where: {
+          userId:
+            decoded.id,
+        },
+
+        data: {
+          isDefault:
+            false,
+        },
+      })
+    }
+
+    //////////////////////////////////////////////////////
     // CREATE ADDRESS
     //////////////////////////////////////////////////////
 
@@ -172,17 +441,14 @@ export async function POST(
           userId:
             decoded.id,
 
-          name:
-            body.name,
+          name,
 
           address:
-            body.address,
+            addressText,
 
-          city:
-            body.city,
+          city,
 
-          pincode:
-            body.pincode,
+          pincode,
 
           isDefault:
             body.isDefault ||
@@ -195,7 +461,13 @@ export async function POST(
     //////////////////////////////////////////////////////
 
     return NextResponse.json(
-      address,
+
+      {
+        success: true,
+
+        address,
+      },
+
       {
         status: 201,
       }
@@ -203,7 +475,10 @@ export async function POST(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "CREATE ADDRESS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
