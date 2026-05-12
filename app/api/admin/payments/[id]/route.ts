@@ -5,8 +5,7 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma }
-from "@/lib/prisma"
+import { prisma }from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
 // FORCE DYNAMIC
