@@ -1,4 +1,4 @@
-// app/api/invoice/[id]/route.ts
+// app/api/payments/invoice/[id]/route.ts
 
 import {
   NextRequest,
@@ -10,19 +10,17 @@ import jwt from "jsonwebtoken"
 import { prisma }
 from "@/lib/prisma"
 
-interface Props {
-  params: Promise<{
-    id: string
-  }>
-}
-
 //////////////////////////////////////////////////////
 // GET INVOICE
 //////////////////////////////////////////////////////
 
 export async function GET(
   req: NextRequest,
-  { params }: Props
+  context: {
+    params: Promise<{
+      id: string
+    }>
+  }
 ) {
 
   try {
@@ -64,8 +62,8 @@ export async function GET(
     // PARAMS
     //////////////////////////////////////////////////////
 
-    const resolved =
-      await params
+    const { id } =
+      await context.params
 
     //////////////////////////////////////////////////////
     // PAYMENT
@@ -75,8 +73,7 @@ export async function GET(
       await prisma.payment.findUnique({
 
         where: {
-          id:
-            resolved.id,
+          id,
         },
 
         include: {
@@ -145,7 +142,7 @@ export async function GET(
       success: true,
 
       invoiceId:
-        `INV${Date.now()}`,
+        `INV-${Date.now()}`,
 
       issuedAt:
         new Date(),
@@ -155,7 +152,10 @@ export async function GET(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "INVOICE ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
