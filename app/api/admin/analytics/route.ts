@@ -7,7 +7,18 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
 
 //////////////////////////////////////////////////////
 // ADMIN ANALYTICS
@@ -27,6 +38,10 @@ export async function GET(
       req.cookies.get("token")
         ?.value
 
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
+
     if (!token) {
 
       return NextResponse.json(
@@ -41,13 +56,35 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
-    // VERIFY
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // VERIFY TOKEN
     //////////////////////////////////////////////////////
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -65,10 +102,17 @@ export async function GET(
         },
       })
 
+    //////////////////////////////////////////////////////
+    // ACCESS DENIED
+    //////////////////////////////////////////////////////
+
     if (
+
       !admin ||
+
       admin.role !==
         "admin"
+
     ) {
 
       return NextResponse.json(
@@ -128,6 +172,10 @@ export async function GET(
     const bookings =
       await prisma.booking.findMany()
 
+    //////////////////////////////////////////////////////
+    // COUNTS
+    //////////////////////////////////////////////////////
+
     const totalBookings =
       bookings.length
 
@@ -164,13 +212,16 @@ export async function GET(
     //////////////////////////////////////////////////////
 
     const successRate =
+
       totalBookings > 0
+
         ? Math.round(
             (
               deliveredBookings /
               totalBookings
             ) * 100
           )
+
         : 0
 
     //////////////////////////////////////////////////////
@@ -187,13 +238,19 @@ export async function GET(
     const payments =
       await prisma.payment.findMany()
 
+    //////////////////////////////////////////////////////
+    // REVENUE
+    //////////////////////////////////////////////////////
+
     const revenue =
       payments
+
         .filter(
           (item) =>
             item.status ===
             "paid"
         )
+
         .reduce(
           (
             acc,
@@ -203,6 +260,10 @@ export async function GET(
             item.amount,
           0
         )
+
+    //////////////////////////////////////////////////////
+    // PAYMENT COUNTS
+    //////////////////////////////////////////////////////
 
     const paidPayments =
       payments.filter(
@@ -248,16 +309,21 @@ export async function GET(
         cityMap[
           item.toCity
         ] =
-          (cityMap[
-            item.toCity
-          ] || 0) + 1
+
+          (
+            cityMap[
+              item.toCity
+            ] || 0
+          ) + 1
       }
     )
 
     const topCities =
+
       Object.entries(
         cityMap
       )
+
         .map(
           ([
             city,
@@ -267,6 +333,7 @@ export async function GET(
             count,
           })
         )
+
         .sort(
           (
             a,
@@ -275,6 +342,7 @@ export async function GET(
             b.count -
             a.count
         )
+
         .slice(0, 5)
 
     //////////////////////////////////////////////////////
@@ -290,19 +358,25 @@ export async function GET(
     bookings.forEach(
       (item) => {
 
-        vehicleMap[
-          item.vehicleType
-        ] =
-          (vehicleMap[
+        const key =
+          String(
             item.vehicleType
-          ] || 0) + 1
+          )
+
+        vehicleMap[key] =
+
+          (
+            vehicleMap[key] || 0
+          ) + 1
       }
     )
 
     const vehicleStats =
+
       Object.entries(
         vehicleMap
       )
+
         .map(
           ([
             vehicleType,
@@ -312,6 +386,7 @@ export async function GET(
             count,
           })
         )
+
         .sort(
           (
             a,
@@ -380,7 +455,10 @@ export async function GET(
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "ANALYTICS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
