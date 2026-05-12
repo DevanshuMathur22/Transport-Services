@@ -7,7 +7,18 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
+
+//////////////////////////////////////////////////////
+// FORCE DYNAMIC
+//////////////////////////////////////////////////////
+
+export const dynamic =
+  "force-dynamic"
+
+export const runtime =
+  "nodejs"
 
 //////////////////////////////////////////////////////
 // GET ADMIN BOOKINGS
@@ -20,12 +31,35 @@ export async function GET(
   try {
 
     //////////////////////////////////////////////////////
+    // JWT SECRET CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      !process.env.JWT_SECRET
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "JWT secret missing",
+        },
+        {
+          status: 500,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // TOKEN
     //////////////////////////////////////////////////////
 
     const token =
       req.cookies.get("token")
         ?.value
+
+    //////////////////////////////////////////////////////
+    // NO TOKEN
+    //////////////////////////////////////////////////////
 
     if (!token) {
 
@@ -46,8 +80,11 @@ export async function GET(
 
     const decoded =
       jwt.verify(
+
         token,
-        process.env.JWT_SECRET!
+
+        process.env.JWT_SECRET
+
       ) as {
         id: string
       }
@@ -56,18 +93,45 @@ export async function GET(
     // CHECK ADMIN
     //////////////////////////////////////////////////////
 
-   const admin =
-  await prisma.user.findFirst({
+    const admin =
+      await prisma.user.findUnique({
 
-    where: {
-      id:
-        decoded.id,
-    },
-  })
+        where: {
+          id:
+            decoded.id,
+        },
 
-console.log("DECODED:", decoded)
+        select: {
 
-console.log("ADMIN:", admin)
+          id: true,
+
+          role: true,
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // ACCESS DENIED
+    //////////////////////////////////////////////////////
+
+    if (
+
+      !admin ||
+
+      admin.role !==
+        "admin"
+
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
 
     //////////////////////////////////////////////////////
     // BOOKINGS
@@ -140,7 +204,10 @@ console.log("ADMIN:", admin)
 
   } catch (error) {
 
-    console.log(error)
+    console.log(
+      "ADMIN BOOKINGS ERROR:",
+      error
+    )
 
     return NextResponse.json(
       {
