@@ -200,8 +200,13 @@ export async function POST(
           //////////////////////////////////////////////////////
 isDriverApproved:
   validRole === "driver"
-    ? true
-    : false,
+    ? false
+    : true,
+
+verificationStatus:
+  validRole === "driver"
+    ? "pending"
+    : "approved",
         },
 
         select: {

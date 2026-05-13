@@ -11,47 +11,94 @@ import {
   LogOut,
   Package,
   Settings,
+  ShieldCheck,
   Truck,
   Users,
 } from "lucide-react"
 
-import { useRouter } from "next/navigation"
+import { useRouter }
+from "next/navigation"
 
 const links = [
+
   {
     label: "Dashboard",
-    href: "/dashboard/admin",
-    icon: LayoutDashboard,
+
+    href:
+      "/dashboard/admin",
+
+    icon:
+      LayoutDashboard,
   },
+
   {
     label: "Drivers",
-    href: "/dashboard/admin/drivers",
-    icon: Truck,
+
+    href:
+      "/dashboard/admin/drivers",
+
+    icon:
+      Truck,
   },
+
+  {
+    label: "Driver Reviews",
+
+    href:
+      "/dashboard/admin/drivers/review",
+
+    icon:
+      ShieldCheck,
+  },
+
   {
     label: "Users",
-    href: "/dashboard/admin/users",
-    icon: Users,
+
+    href:
+      "/dashboard/admin/users",
+
+    icon:
+      Users,
   },
+
   {
     label: "Bookings",
-    href: "/dashboard/admin/bookings",
-    icon: Package,
+
+    href:
+      "/dashboard/admin/bookings",
+
+    icon:
+      Package,
   },
+
   {
     label: "Payments",
-    href: "/dashboard/admin/payments",
-    icon: CreditCard,
+
+    href:
+      "/dashboard/admin/payments",
+
+    icon:
+      CreditCard,
   },
+
   {
     label: "Analytics",
-    href: "/dashboard/admin/analytics",
-    icon: BarChart3,
+
+    href:
+      "/dashboard/admin/analytics",
+
+    icon:
+      BarChart3,
   },
+
   {
     label: "Settings",
-    href: "/dashboard/admin/settings",
-    icon: Settings,
+
+    href:
+      "/dashboard/admin/settings",
+
+    icon:
+      Settings,
   },
 ]
 
@@ -74,8 +121,8 @@ export default function AdminLayout({
       try {
 
         await axios.post(
-  "/api/auth/logout"
-)
+          "/api/auth/logout"
+        )
 
         router.push(
           "/login"
@@ -88,50 +135,68 @@ export default function AdminLayout({
     }
 
   return (
+
     <div className="flex min-h-screen bg-zinc-50">
 
-      {/* Sidebar */}
+      {/* SIDEBAR */}
 
-      <aside className="hidden md:flex w-72 border-r bg-white flex-col">
+      <aside className="hidden w-72 flex-col border-r bg-white md:flex">
 
-        <div className="h-20 border-b flex items-center px-6">
+        {/* HEADER */}
+
+        <div className="flex h-20 items-center border-b px-6">
 
           <h1 className="text-2xl font-bold">
+
             Admin Panel
+
           </h1>
         </div>
 
-        <div className="flex-1 p-4 space-y-2">
+        {/* LINKS */}
 
-          {links.map((link) => {
+        <div className="flex-1 space-y-2 p-4">
 
-            const Icon =
-              link.icon
+          {links.map(
+            (link) => {
 
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="
-                  flex
-                  items-center
-                  gap-3
-                  px-4
-                  py-3
-                  rounded-xl
-                  hover:bg-zinc-100
-                  transition
-                "
-              >
+              const Icon =
+                link.icon
 
-                <Icon className="w-5 h-5" />
+              return (
 
-                <span className="font-medium">
-                  {link.label}
-                </span>
-              </Link>
-            )
-          })}
+                <Link
+                  key={
+                    link.href
+                  }
+                  href={
+                    link.href
+                  }
+                  className="
+                    flex
+                    items-center
+                    gap-3
+                    rounded-xl
+                    px-4
+                    py-3
+                    transition
+                    hover:bg-zinc-100
+                  "
+                >
+
+                  <Icon className="h-5 w-5" />
+
+                  <span className="font-medium">
+
+                    {
+                      link.label
+                    }
+
+                  </span>
+                </Link>
+              )
+            }
+          )}
         </div>
 
         {/* LOGOUT */}
@@ -139,7 +204,9 @@ export default function AdminLayout({
         <div className="border-t p-4">
 
           <button
-            onClick={handleLogout}
+            onClick={
+              handleLogout
+            }
             className="
               flex
               w-full
@@ -149,21 +216,23 @@ export default function AdminLayout({
               px-4
               py-3
               text-red-600
-              hover:bg-red-50
               transition
+              hover:bg-red-50
             "
           >
 
-            <LogOut className="w-5 h-5" />
+            <LogOut className="h-5 w-5" />
 
             <span className="font-medium">
+
               Logout
+
             </span>
           </button>
         </div>
       </aside>
 
-      {/* Main */}
+      {/* MAIN */}
 
       <main className="flex-1 overflow-y-auto">
 

@@ -38,7 +38,9 @@ enum VehicleType {
 }
 
 model User {
+
   id                String   @id @default(auto()) @map("_id") @db.ObjectId
+
   name              String
   email             String   @unique
   password          String
@@ -46,8 +48,25 @@ model User {
   image             String?
 
   role              Role     @default(user)
+
   isBlocked         Boolean  @default(false)
+
   isVerified        Boolean  @default(false)
+
+  //////////////////////////////////////////////////////
+  // DRIVER VERIFICATION
+  //////////////////////////////////////////////////////
+
+  isDriverApproved  Boolean  @default(false)
+
+  verificationStatus String @default("pending")
+
+  aadhaarNumber     String?
+  licenseNumber     String?
+
+  //////////////////////////////////////////////////////
+  // AUTH
+  //////////////////////////////////////////////////////
 
   resetToken        String?
   resetTokenExpiry  DateTime?
@@ -59,31 +78,60 @@ model User {
   loginAttempts     Int      @default(0)
   lockUntil         DateTime?
 
+  //////////////////////////////////////////////////////
+  // ADDRESS
+  //////////////////////////////////////////////////////
+
   city              String?
   address           String?
   pincode           String?
 
+  //////////////////////////////////////////////////////
+  // DRIVER
+  //////////////////////////////////////////////////////
+
   vehicleType       String?
+
   vehicleNumber     String?
+
   isOnline          Boolean  @default(false)
+
+  //////////////////////////////////////////////////////
+  // DOCUMENTS
+  //////////////////////////////////////////////////////
 
   licenseUrl        String?
   rcUrl             String?
   aadhaarUrl        String?
   insuranceUrl      String?
 
-  isDriverApproved  Boolean  @default(true)
+  //////////////////////////////////////////////////////
+  // LOCATION
+  //////////////////////////////////////////////////////
 
   latitude          Float?
   longitude         Float?
 
+  //////////////////////////////////////////////////////
+  // RELATIONS
+  //////////////////////////////////////////////////////
+
   bookings          Booking[]
+
   assignedBookings  Booking[] @relation("DriverBookings")
+
   payments          Payment[]
+
   notifications     Notification[]
+
   addresses         Address[]
 
+  //////////////////////////////////////////////////////
+  // TIMESTAMPS
+  //////////////////////////////////////////////////////
+
   createdAt         DateTime @default(now())
+
   updatedAt         DateTime @updatedAt
 
   @@index([role])

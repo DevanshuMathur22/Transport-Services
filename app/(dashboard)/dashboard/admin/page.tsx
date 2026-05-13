@@ -65,20 +65,22 @@ export default function AdminDashboardPage() {
       }
     }
 
-  if (loading) {
+  if (
+  loading ||
+  !stats
+) {
 
-    return (
-      <div className="
-        flex
-        h-screen
-        items-center
-        justify-center
-      ">
-        Loading...
-      </div>
-    )
-  }
-
+  return (
+    <div className="
+      flex
+      h-screen
+      items-center
+      justify-center
+    ">
+      Loading...
+    </div>
+  )
+}
   const cards = [
     {
       title: "Total Users",
@@ -559,39 +561,67 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        <div className="
-          flex
-          items-center
-          gap-3
-        ">
+       <div className="
+  flex
+  items-center
+  gap-3
+">
 
-          <button
-            className="
-              rounded-xl
-              border
-              px-4
-              py-2
-              text-sm
-              font-medium
-            "
-          >
-            View
-          </button>
+  <button
+    onClick={() =>
+      window.location.href =
+        `/dashboard/admin/drivers/review?id=${driver.id}`
+    }
+    className="
+      rounded-xl
+      border
+      px-4
+      py-2
+      text-sm
+      font-medium
+      transition
+      hover:bg-zinc-100
+    "
+  >
+    View
+  </button>
 
-          <button
-            className="
-              rounded-xl
-              bg-red-600
-              px-4
-              py-2
-              text-sm
-              font-medium
-              text-white
-            "
-          >
-            Block
-          </button>
-        </div>
+  <button
+    onClick={async () => {
+
+      try {
+
+        await axios.put(
+          "/api/admin/drivers/block",
+          {
+            driverId:
+              driver.id,
+          }
+        )
+
+        fetchDashboard()
+
+      } catch (error) {
+
+        console.log(error)
+      }
+    }}
+    className="
+      rounded-xl
+      bg-red-600
+      px-4
+      py-2
+      text-sm
+      font-medium
+      text-white
+      transition
+      hover:bg-red-700
+    "
+  >
+    Block
+  </button>
+
+</div>
       </div>
     ))}
 

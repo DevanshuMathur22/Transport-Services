@@ -111,6 +111,14 @@ export async function GET(
 
           isDriverApproved: true,
 
+          verificationStatus: true,
+
+          aadhaarNumber: true,
+
+          licenseNumber: true,
+
+          vehicleNumber: true,
+
           licenseUrl: true,
 
           rcUrl: true,
@@ -176,6 +184,15 @@ export async function GET(
 
       documents: {
 
+        aadhaarNumber:
+          driver.aadhaarNumber,
+
+        licenseNumber:
+          driver.licenseNumber,
+
+        vehicleNumber:
+          driver.vehicleNumber,
+
         licenseUrl:
           driver.licenseUrl,
 
@@ -191,6 +208,9 @@ export async function GET(
 
       isDriverApproved:
         driver.isDriverApproved,
+
+      verificationStatus:
+        driver.verificationStatus,
     })
 
   } catch (error) {
@@ -356,6 +376,78 @@ export async function PUT(
     }
 
     //////////////////////////////////////////////////////
+    // DUPLICATE AADHAAR
+    //////////////////////////////////////////////////////
+
+    const duplicateAadhaar =
+      await prisma.user.findFirst({
+
+        where: {
+
+          aadhaarNumber:
+            body.aadhaarNumber,
+
+          NOT: {
+            id:
+              decoded.id,
+          },
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // DUPLICATE LICENSE
+    //////////////////////////////////////////////////////
+
+    const duplicateLicense =
+      await prisma.user.findFirst({
+
+        where: {
+
+          licenseNumber:
+            body.licenseNumber,
+
+          NOT: {
+            id:
+              decoded.id,
+          },
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // DUPLICATE VEHICLE
+    //////////////////////////////////////////////////////
+
+    const duplicateVehicle =
+      await prisma.user.findFirst({
+
+        where: {
+
+          vehicleNumber:
+
+            body.vehicleNumber
+              ?.trim()
+              ?.toUpperCase(),
+
+          NOT: {
+            id:
+              decoded.id,
+          },
+        },
+      })
+
+    //////////////////////////////////////////////////////
+    // SUSPICIOUS
+    //////////////////////////////////////////////////////
+
+    const suspicious =
+
+      duplicateAadhaar ||
+
+      duplicateLicense ||
+
+      duplicateVehicle
+
+    //////////////////////////////////////////////////////
     // UPDATE DRIVER
     //////////////////////////////////////////////////////
 
@@ -368,6 +460,18 @@ export async function PUT(
         },
 
         data: {
+
+          aadhaarNumber:
+            body.aadhaarNumber,
+
+          licenseNumber:
+            body.licenseNumber,
+
+          vehicleNumber:
+
+            body.vehicleNumber
+              ?.trim()
+              ?.toUpperCase(),
 
           licenseUrl:
             body.licenseUrl || null,
@@ -382,16 +486,30 @@ export async function PUT(
             body.insuranceUrl || null,
 
           //////////////////////////////////////////////////////
-          // AUTO APPROVE
+          // AUTO VERIFY
           //////////////////////////////////////////////////////
 
           isDriverApproved:
-            true,
+            !suspicious,
+
+          verificationStatus:
+
+            suspicious
+
+              ? "manual_review"
+
+              : "auto_approved",
         },
 
         select: {
 
           id: true,
+
+          aadhaarNumber: true,
+
+          licenseNumber: true,
+
+          vehicleNumber: true,
 
           licenseUrl: true,
 
@@ -402,6 +520,8 @@ export async function PUT(
           insuranceUrl: true,
 
           isDriverApproved: true,
+
+          verificationStatus: true,
         },
       })
 
@@ -420,7 +540,12 @@ export async function PUT(
           "Documents Updated",
 
         message:
-          "Your driver documents were updated successfully.",
+
+          suspicious
+
+            ? "Documents submitted for manual review."
+
+            : "Driver verified successfully.",
 
         type:
           "driver",
@@ -434,6 +559,11 @@ export async function PUT(
     return NextResponse.json({
 
       success: true,
+
+      suspicious:
+        Boolean(
+          suspicious
+        ),
 
       driver:
         updatedDriver,

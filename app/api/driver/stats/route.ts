@@ -113,14 +113,11 @@ export async function GET(
 
           isDriverApproved: true,
 
+          verificationStatus: true,
+
           isOnline: true,
         },
       })
-
-    console.log({
-      decoded,
-      driver,
-    })
 
     //////////////////////////////////////////////////////
     // CHECK DRIVER
@@ -166,61 +163,90 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
-    // DRIVER APPROVAL
+    // NOT APPROVED
     //////////////////////////////////////////////////////
 
     if (
       !driver.isDriverApproved
     ) {
 
-      return NextResponse.json(
-        {
-          error:
-            "Driver not approved",
+      return NextResponse.json({
+
+        success: true,
+
+        driver: {
+
+          name:
+            driver.name,
+
+          isOnline:
+            driver.isOnline,
+
+          isDriverApproved:
+            driver.isDriverApproved,
+
+          verificationStatus:
+            driver.verificationStatus,
         },
-        {
-          status: 403,
-        }
-      )
+
+        pendingOrders: 0,
+
+        activeDeliveries: 0,
+
+        completedDeliveries: 0,
+
+        successRate: 0,
+
+        earnings: 0,
+
+        todayEarnings: 0,
+
+        availableOrders: [],
+
+        currentDelivery: null,
+
+        activities: [],
+      })
     }
 
     //////////////////////////////////////////////////////
     // AVAILABLE ORDERS
     //////////////////////////////////////////////////////
 
-   const availableOrders =
-  await prisma.booking.findMany({
+    const availableOrders =
+      await prisma.booking.findMany({
 
-    where: {
+        where: {
 
-      status:
-        "pending",
+          status:
+            "pending",
 
-      driverId:
-        null,
-    },
-
-    orderBy: {
-
-      createdAt:
-        "desc",
-    },
-
-    take: 5,
-
-    include: {
-
-      user: {
-
-        select: {
-
-          name: true,
-
-          phone: true,
+          driverId:
+            null,
         },
-      },
-    },
-  })
+
+        orderBy: {
+
+          createdAt:
+            "desc",
+        },
+
+        take: 5,
+
+        include: {
+
+          user: {
+
+            select: {
+
+              name: true,
+
+              phone: true,
+            },
+          },
+        },
+      })
+
     //////////////////////////////////////////////////////
     // ACTIVE DELIVERIES
     //////////////////////////////////////////////////////
@@ -458,6 +484,12 @@ export async function GET(
 
         isOnline:
           driver.isOnline,
+
+        isDriverApproved:
+          driver.isDriverApproved,
+
+        verificationStatus:
+          driver.verificationStatus,
       },
 
       pendingOrders:

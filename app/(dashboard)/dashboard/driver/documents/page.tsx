@@ -7,6 +7,8 @@ import {
 } from "framer-motion"
 
 import {
+  AlertTriangle,
+  CheckCircle2,
   FileText,
   Save,
   ShieldCheck,
@@ -30,9 +32,25 @@ export default function DriverDocumentsPage() {
   ] = useState(false)
 
   const [
+    verificationStatus,
+    setVerificationStatus,
+  ] = useState("pending")
+
+  const [
+    isDriverApproved,
+    setIsDriverApproved,
+  ] = useState(false)
+
+  const [
     form,
     setForm,
   ] = useState({
+
+    aadhaarNumber: "",
+
+    licenseNumber: "",
+
+    vehicleNumber: "",
 
     licenseUrl: "",
 
@@ -65,18 +83,45 @@ export default function DriverDocumentsPage() {
 
         setForm({
 
+          aadhaarNumber:
+            res.data.documents
+              ?.aadhaarNumber || "",
+
+          licenseNumber:
+            res.data.documents
+              ?.licenseNumber || "",
+
+          vehicleNumber:
+            res.data.documents
+              ?.vehicleNumber || "",
+
           licenseUrl:
-            res.data.licenseUrl || "",
+            res.data.documents
+              ?.licenseUrl || "",
 
           rcUrl:
-            res.data.rcUrl || "",
+            res.data.documents
+              ?.rcUrl || "",
 
           aadhaarUrl:
-            res.data.aadhaarUrl || "",
+            res.data.documents
+              ?.aadhaarUrl || "",
 
           insuranceUrl:
-            res.data.insuranceUrl || "",
+            res.data.documents
+              ?.insuranceUrl || "",
         })
+
+        setVerificationStatus(
+          res.data
+            ?.verificationStatus ||
+          "pending"
+        )
+
+        setIsDriverApproved(
+          res.data
+            ?.isDriverApproved
+        )
 
       } catch (error) {
 
@@ -95,9 +140,20 @@ export default function DriverDocumentsPage() {
 
         setLoading(true)
 
-        await axios.put(
-          "/api/driver/documents",
-          form
+        const res =
+          await axios.put(
+            "/api/driver/documents",
+            form
+          )
+
+        setVerificationStatus(
+          res.data.driver
+            ?.verificationStatus
+        )
+
+        setIsDriverApproved(
+          res.data.driver
+            ?.isDriverApproved
         )
 
         alert(
@@ -195,16 +251,145 @@ export default function DriverDocumentsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl bg-green-500/20 px-5 py-3 text-sm font-medium text-green-300">
+          {/* STATUS */}
 
-            <ShieldCheck
-              size={18}
-            />
+          <div>
 
-            Secure Verification
+            {
+              verificationStatus ===
+              "auto_approved" ||
+
+              verificationStatus ===
+              "approved"
+
+                ? (
+
+                  <div className="flex items-center gap-2 rounded-2xl bg-green-500/20 px-5 py-3 text-sm font-medium text-green-300">
+
+                    <CheckCircle2
+                      size={18}
+                    />
+
+                    Verified Driver
+                  </div>
+                )
+
+                : verificationStatus ===
+                  "manual_review"
+
+                ? (
+
+                  <div className="flex items-center gap-2 rounded-2xl bg-yellow-500/20 px-5 py-3 text-sm font-medium text-yellow-300">
+
+                    <AlertTriangle
+                      size={18}
+                    />
+
+                    Under Manual Review
+                  </div>
+                )
+
+                : (
+
+                  <div className="flex items-center gap-2 rounded-2xl bg-slate-700 px-5 py-3 text-sm font-medium text-slate-200">
+
+                    <ShieldCheck
+                      size={18}
+                    />
+
+                    Pending Verification
+                  </div>
+                )
+            }
           </div>
         </div>
       </motion.div>
+
+      {/* BASIC DETAILS */}
+
+      <div className="grid gap-6 lg:grid-cols-3">
+
+        <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
+
+          <label className="text-sm font-medium text-slate-700">
+            Aadhaar Number
+          </label>
+
+          <input
+            type="text"
+            value={
+              form.aadhaarNumber
+            }
+            onChange={(e) =>
+              setForm({
+
+                ...form,
+
+                aadhaarNumber:
+                  e.target.value,
+              })
+            }
+            placeholder="123412341234"
+            maxLength={12}
+            className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-orange-500"
+          />
+        </div>
+
+        <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
+
+          <label className="text-sm font-medium text-slate-700">
+            License Number
+          </label>
+
+          <input
+            type="text"
+            value={
+              form.licenseNumber
+            }
+            onChange={(e) =>
+              setForm({
+
+                ...form,
+
+                licenseNumber:
+                  e.target.value,
+              })
+            }
+            placeholder="DL0420110012345"
+            className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 uppercase outline-none focus:border-orange-500"
+          />
+        </div>
+
+        <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
+
+          <label className="text-sm font-medium text-slate-700">
+            Vehicle Number
+          </label>
+
+          <input
+            type="text"
+            value={
+              form.vehicleNumber
+            }
+            onChange={(e) =>
+              setForm({
+
+                ...form,
+
+                vehicleNumber:
+                  e.target.value
+                    .toUpperCase(),
+              })
+            }
+            placeholder="RJ14AB1234"
+            style={{
+              textTransform:
+                "uppercase",
+            }}
+            className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 uppercase outline-none focus:border-orange-500"
+          />
+        </div>
+      </div>
 
       {/* DOCUMENTS */}
 
@@ -313,6 +498,22 @@ export default function DriverDocumentsPage() {
         }
 
       </button>
+
+      {/* STATUS MESSAGE */}
+
+      {
+        !isDriverApproved &&
+
+        verificationStatus ===
+        "manual_review" && (
+
+          <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-5 text-sm text-yellow-800">
+
+            Your documents were flagged for manual verification because duplicate information was detected.
+
+          </div>
+        )
+      }
     </div>
   )
 }
