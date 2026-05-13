@@ -166,14 +166,16 @@ export async function GET(
             decoded.id,
         },
 
-        orderBy: {
-
-          isDefault:
-            "desc",
-
-          createdAt:
-            "desc",
-        },
+        orderBy: [
+          {
+            isDefault:
+              "desc",
+          },
+          {
+            createdAt:
+              "desc",
+          },
+        ],
       })
 
     //////////////////////////////////////////////////////

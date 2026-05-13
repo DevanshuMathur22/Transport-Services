@@ -111,21 +111,21 @@ export async function GET(
     // FIND DRIVER
     //////////////////////////////////////////////////////
 
-    const driver =
-      await prisma.user.findUnique({
+   const driver =
+  await prisma.user.findUnique({
 
-        where: {
-          id:
-            decoded.id,
-        },
+    where: {
+      id:
+        decoded.id,
+    },
 
-        select: {
+    select: {
 
-          id: true,
+      id: true,
 
-          role: true,
-        },
-      })
+      role: true,
+    },
+  })
 
     //////////////////////////////////////////////////////
     // ACCESS CHECK

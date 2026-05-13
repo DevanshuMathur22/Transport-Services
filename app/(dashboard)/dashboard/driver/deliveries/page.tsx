@@ -53,9 +53,9 @@ export default function ActiveDeliveriesPage() {
             "/api/driver/deliveries"
           )
 
-        setDeliveries(
-          res.data
-        )
+      setDeliveries(
+  res.data.deliveries
+)
 
       } catch (error) {
 

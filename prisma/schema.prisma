@@ -72,7 +72,7 @@ model User {
   aadhaarUrl        String?
   insuranceUrl      String?
 
-  isDriverApproved  Boolean  @default(false)
+  isDriverApproved  Boolean  @default(true)
 
   latitude          Float?
   longitude         Float?

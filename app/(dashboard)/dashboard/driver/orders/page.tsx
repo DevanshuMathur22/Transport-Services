@@ -67,8 +67,8 @@ export default function DriverOrdersPage() {
           )
 
         setOrders(
-          res.data
-        )
+  res.data.orders
+)
 
       } catch (error) {
 

@@ -266,7 +266,9 @@ export async function GET(
 
     const formattedNotifications =
       notifications.map(
-        (notification) => ({
+        (
+          notification: any
+        ) => ({
 
           id:
             notification.id,

@@ -44,9 +44,13 @@ export default function TrackingPage() {
             "/api/user/bookings"
           )
 
-        setBookings(
-          res.data
-        )
+  setBookings(
+  Array.isArray(
+    res.data.bookings
+  )
+    ? res.data.bookings
+    : []
+)
 
       } catch (error) {
 

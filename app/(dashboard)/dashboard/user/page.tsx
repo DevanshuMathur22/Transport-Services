@@ -63,9 +63,13 @@ export default function UserDashboardPage() {
           statsRes.data
         )
 
-        setBookings(
-          bookingsRes.data
-        )
+       setBookings(
+  Array.isArray(
+    bookingsRes.data.bookings
+  )
+    ? bookingsRes.data.bookings
+    : []
+)
 
         setShipment(
           shipmentRes.data

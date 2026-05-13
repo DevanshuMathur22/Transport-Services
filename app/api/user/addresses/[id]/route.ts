@@ -1,3 +1,5 @@
+// app/api/user/addresses/[id]/route.ts
+
 import { prisma }
 from "@/lib/prisma"
 
@@ -19,11 +21,22 @@ export const runtime =
   "nodejs"
 
 //////////////////////////////////////////////////////
+// PARAMS TYPE
+//////////////////////////////////////////////////////
+
+type Props = {
+  params: Promise<{
+    id: string
+  }>
+}
+
+//////////////////////////////////////////////////////
 // DELETE ADDRESS
 //////////////////////////////////////////////////////
 
 export async function DELETE(
-  req: NextRequest
+  req: NextRequest,
+  context: Props
 ) {
 
   try {
@@ -88,21 +101,17 @@ export async function DELETE(
       }
 
     //////////////////////////////////////////////////////
-    // BODY
+    // PARAMS
     //////////////////////////////////////////////////////
 
-    const body =
-      await req.json()
-
-    const {
-      addressId,
-    } = body
+    const { id } =
+      await context.params
 
     //////////////////////////////////////////////////////
     // VALIDATION
     //////////////////////////////////////////////////////
 
-    if (!addressId) {
+    if (!id) {
 
       return NextResponse.json(
         {
@@ -132,16 +141,16 @@ export async function DELETE(
           id: true,
 
           role: true,
+
+          isBlocked: true,
         },
       })
 
     //////////////////////////////////////////////////////
-    // ACCESS CHECK
+    // USER CHECK
     //////////////////////////////////////////////////////
 
-    if (
-      !user
-    ) {
+    if (!user) {
 
       return NextResponse.json(
         {
@@ -155,6 +164,45 @@ export async function DELETE(
     }
 
     //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // ROLE CHECK
+    //////////////////////////////////////////////////////
+
+    if (
+      user.role !==
+      "user"
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // FIND ADDRESS
     //////////////////////////////////////////////////////
 
@@ -163,8 +211,7 @@ export async function DELETE(
 
         where: {
 
-          id:
-            addressId,
+          id,
 
           userId:
             decoded.id,
@@ -195,8 +242,7 @@ export async function DELETE(
     await prisma.address.delete({
 
       where: {
-        id:
-          addressId,
+        id,
       },
     })
 

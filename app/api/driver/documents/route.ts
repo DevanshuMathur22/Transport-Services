@@ -382,11 +382,11 @@ export async function PUT(
             body.insuranceUrl || null,
 
           //////////////////////////////////////////////////////
-          // REQUIRE REAPPROVAL
+          // AUTO APPROVE
           //////////////////////////////////////////////////////
 
           isDriverApproved:
-            false,
+            true,
         },
 
         select: {
@@ -426,48 +426,6 @@ export async function PUT(
           "driver",
       },
     })
-
-    //////////////////////////////////////////////////////
-    // ADMIN
-    //////////////////////////////////////////////////////
-
-    const admin =
-      await prisma.user.findFirst({
-
-        where: {
-          role:
-            "admin",
-        },
-
-        select: {
-          id: true,
-        },
-      })
-
-    //////////////////////////////////////////////////////
-    // ADMIN NOTIFICATION
-    //////////////////////////////////////////////////////
-
-    if (admin) {
-
-      await prisma.notification.create({
-
-        data: {
-
-          userId:
-            admin.id,
-
-          title:
-            "Driver Documents Submitted",
-
-          message:
-            `${driver.name} uploaded driver documents.`,
-
-          type:
-            "admin",
-        },
-      })
-    }
 
     //////////////////////////////////////////////////////
     // RESPONSE

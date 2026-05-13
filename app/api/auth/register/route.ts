@@ -198,12 +198,10 @@ export async function POST(
           //////////////////////////////////////////////////////
           // DRIVER APPROVAL
           //////////////////////////////////////////////////////
-
-          isDriverApproved:
-            validRole ===
-            "driver"
-              ? false
-              : true,
+isDriverApproved:
+  validRole === "driver"
+    ? true
+    : false,
         },
 
         select: {

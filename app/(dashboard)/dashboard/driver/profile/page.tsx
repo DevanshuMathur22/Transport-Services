@@ -8,6 +8,8 @@ import {
 
 import {
   Car,
+  CheckCircle2,
+  Mail,
   MapPin,
   Phone,
   Save,
@@ -29,6 +31,21 @@ export default function DriverProfilePage() {
     loading,
     setLoading,
   ] = useState(false)
+
+  const [
+    fetching,
+    setFetching,
+  ] = useState(true)
+
+  const [
+    success,
+    setSuccess,
+  ] = useState("")
+
+  const [
+    error,
+    setError,
+  ] = useState("")
 
   const [
     form,
@@ -63,6 +80,8 @@ export default function DriverProfilePage() {
 
       try {
 
+        setFetching(true)
+
         const res =
           await axios.get(
             "/api/driver/profile"
@@ -89,9 +108,19 @@ export default function DriverProfilePage() {
             res.data.vehicleNumber || "",
         })
 
-      } catch (error) {
+      } catch (error: any) {
 
         console.log(error)
+
+        setError(
+          error?.response?.data
+            ?.error ||
+          "Failed to load profile"
+        )
+
+      } finally {
+
+        setFetching(false)
       }
     }
 
@@ -106,24 +135,57 @@ export default function DriverProfilePage() {
 
         setLoading(true)
 
-        await axios.put(
-          "/api/driver/profile",
-          form
+        setSuccess("")
+
+        setError("")
+
+        const res =
+          await axios.put(
+            "/api/driver/profile",
+            form
+          )
+
+        setSuccess(
+          res.data.message ||
+          "Profile updated successfully"
         )
 
-        alert(
-          "Profile updated"
-        )
-
-      } catch (error) {
+      } catch (error: any) {
 
         console.log(error)
+
+        setError(
+          error?.response?.data
+            ?.error ||
+          "Failed to update profile"
+        )
 
       } finally {
 
         setLoading(false)
       }
     }
+
+  //////////////////////////////////////////////////////
+  // LOADING
+  //////////////////////////////////////////////////////
+
+  if (fetching) {
+
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+
+        <div className="flex items-center gap-3">
+
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+
+          <p className="text-sm text-slate-500">
+            Loading profile...
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -139,17 +201,44 @@ export default function DriverProfilePage() {
           opacity: 1,
           y: 0,
         }}
-        className="rounded-[30px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 text-white"
+        className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 text-white"
       >
 
-        <h1 className="text-3xl font-bold">
-          Driver Profile
-        </h1>
+        <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-orange-500/20 blur-3xl" />
 
-        <p className="mt-2 text-sm text-slate-300">
-          Manage your personal and vehicle information.
-        </p>
+        <div className="relative">
+
+          <h1 className="text-3xl font-bold">
+            Driver Profile
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-300">
+            Manage your personal and vehicle information.
+          </p>
+        </div>
       </motion.div>
+
+      {/* ALERTS */}
+
+      {success && (
+
+        <div className="flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+
+          <CheckCircle2
+            size={18}
+          />
+
+          {success}
+        </div>
+      )}
+
+      {error && (
+
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+
+          {error}
+        </div>
+      )}
 
       {/* PROFILE */}
 
@@ -157,7 +246,17 @@ export default function DriverProfilePage() {
 
         {/* PERSONAL */}
 
-        <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
+        <motion.div
+          initial={{
+            opacity: 0,
+            y: 20,
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+          }}
+          className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm"
+        >
 
           <div className="flex items-center gap-3">
 
@@ -191,18 +290,26 @@ export default function DriverProfilePage() {
                 Full Name
               </label>
 
-              <input
-                type="text"
-                value={form.name || ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    name:
-                      e.target.value,
-                  })
-                }
-                className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-orange-500"
-              />
+              <div className="relative mt-2">
+
+                <User
+                  size={18}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  type="text"
+                  value={form.name || ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      name:
+                        e.target.value,
+                    })
+                  }
+                  className="h-12 w-full rounded-2xl border border-slate-200 pl-11 pr-4 outline-none transition-all focus:border-orange-500"
+                />
+              </div>
             </div>
 
             {/* EMAIL */}
@@ -213,12 +320,20 @@ export default function DriverProfilePage() {
                 Email
               </label>
 
-              <input
-                type="email"
-                value={form.email || ""}
-                disabled
-                className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 text-slate-500 outline-none"
-              />
+              <div className="relative mt-2">
+
+                <Mail
+                  size={18}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+
+                <input
+                  type="email"
+                  value={form.email || ""}
+                  disabled
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 pl-11 pr-4 text-slate-500 outline-none"
+                />
+              </div>
             </div>
 
             {/* PHONE */}
@@ -246,7 +361,7 @@ export default function DriverProfilePage() {
                         e.target.value,
                     })
                   }
-                  className="h-12 w-full rounded-2xl border border-slate-200 pl-11 pr-4 outline-none focus:border-orange-500"
+                  className="h-12 w-full rounded-2xl border border-slate-200 pl-11 pr-4 outline-none transition-all focus:border-orange-500"
                 />
               </div>
             </div>
@@ -276,16 +391,29 @@ export default function DriverProfilePage() {
                         e.target.value,
                     })
                   }
-                  className="h-12 w-full rounded-2xl border border-slate-200 pl-11 pr-4 outline-none focus:border-orange-500"
+                  className="h-12 w-full rounded-2xl border border-slate-200 pl-11 pr-4 outline-none transition-all focus:border-orange-500"
                 />
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* VEHICLE */}
 
-        <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
+        <motion.div
+          initial={{
+            opacity: 0,
+            y: 20,
+          }}
+          animate={{
+            opacity: 1,
+            y: 0,
+          }}
+          transition={{
+            delay: 0.05,
+          }}
+          className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm"
+        >
 
           <div className="flex items-center gap-3">
 
@@ -330,7 +458,7 @@ export default function DriverProfilePage() {
                   })
                 }
                 placeholder="Truck / Mini Truck"
-                className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:border-orange-500"
+                className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none transition-all focus:border-orange-500"
               />
             </div>
 
@@ -349,11 +477,12 @@ export default function DriverProfilePage() {
                   setForm({
                     ...form,
                     vehicleNumber:
-                      e.target.value,
+                      e.target.value
+                        .toUpperCase(),
                   })
                 }
                 placeholder="RJ14 AB 4589"
-                className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 uppercase outline-none focus:border-orange-500"
+                className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 uppercase outline-none transition-all focus:border-orange-500"
               />
             </div>
 
@@ -364,7 +493,7 @@ export default function DriverProfilePage() {
                 handleSave
               }
               disabled={loading}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-medium text-white transition-all hover:bg-orange-600 disabled:opacity-60"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 text-sm font-medium text-white transition-all hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
 
               <Save
@@ -379,7 +508,7 @@ export default function DriverProfilePage() {
 
             </button>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   )

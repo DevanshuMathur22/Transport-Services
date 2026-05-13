@@ -66,29 +66,57 @@ export default function ProfilePage() {
   }, [])
 
   const fetchProfile =
-    async () => {
+  async () => {
 
-      try {
+    try {
 
-        const res =
-          await axios.get(
-            "/api/user/profile"
-          )
-
-        setProfile(
-          res.data
+      const res =
+        await axios.get(
+          "/api/user/profile"
         )
 
-      } catch (error) {
+      const data =
+        res.data.profile
 
-        console.log(error)
+      setProfile({
 
-      } finally {
+        name:
+          data?.name || "",
 
-        setLoading(false)
-      }
+        email:
+          data?.email || "",
+
+        phone:
+          data?.phone || "",
+
+        city:
+          data?.city || "",
+
+        address:
+          data?.address || "",
+
+        pincode:
+          data?.pincode || "",
+
+        role:
+          data?.role || "",
+
+        isVerified:
+          data?.isVerified || false,
+
+        isBlocked:
+          data?.isBlocked || false,
+      })
+
+    } catch (error) {
+
+      console.log(error)
+
+    } finally {
+
+      setLoading(false)
     }
-
+  }
   //////////////////////////////////////////////////////
   // SAVE
   //////////////////////////////////////////////////////

@@ -51,10 +51,13 @@ export default function AddressPage() {
             "/api/user/addresses"
           )
 
-        setAddresses(
-          res.data
-        )
-
+setAddresses(
+  Array.isArray(
+    res.data.addresses
+  )
+    ? res.data.addresses
+    : []
+)
       } catch (error) {
 
         console.log(error)

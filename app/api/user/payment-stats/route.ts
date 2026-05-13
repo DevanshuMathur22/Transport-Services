@@ -210,8 +210,8 @@ export async function GET(
     const totalSpent =
       payments.reduce(
         (
-          acc,
-          item
+          acc: number,
+          item: any
         ) =>
           acc +
           item.amount,
@@ -221,7 +221,7 @@ export async function GET(
     const successful =
       payments.filter(
         (
-          item
+          item: any
         ) =>
           item.status ===
           "paid"
@@ -230,7 +230,7 @@ export async function GET(
     const pending =
       payments.filter(
         (
-          item
+          item: any
         ) =>
           item.status ===
           "pending"
@@ -239,7 +239,7 @@ export async function GET(
     const refunded =
       payments.filter(
         (
-          item
+          item: any
         ) =>
           item.status ===
           "refunded"
@@ -248,7 +248,7 @@ export async function GET(
     const failed =
       payments.filter(
         (
-          item
+          item: any
         ) =>
           item.status ===
           "failed"

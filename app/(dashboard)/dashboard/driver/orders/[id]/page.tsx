@@ -69,9 +69,9 @@ export default function DriverOrderDetailsPage({
             `/api/driver/orders/${resolved.id}`
           )
 
-        setOrder(
-          res.data
-        )
+     setOrder(
+  res.data.order
+)
 
       } catch (error) {
 

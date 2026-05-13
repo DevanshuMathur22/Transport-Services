@@ -197,18 +197,40 @@ export async function GET(
 
             select: {
 
+              id: true,
+
               name: true,
 
               phone: true,
+
+              email: true,
+            },
+          },
+
+          payment: {
+
+            select: {
+
+              id: true,
+
+              amount: true,
+
+              status: true,
+
+              paymentMethod: true,
+
+              transactionId: true,
             },
           },
         },
 
-        orderBy: {
+        orderBy: [
 
-          deliveredAt:
-            "desc",
-        },
+          {
+            deliveredAt:
+              "desc",
+          },
+        ],
       })
 
     //////////////////////////////////////////////////////
@@ -219,8 +241,8 @@ export async function GET(
       deliveries.reduce(
 
         (
-          total,
-          item
+          total: number,
+          item: any
         ) =>
 
           total +
@@ -257,7 +279,7 @@ export async function GET(
     const todayDeliveries =
       deliveries.filter(
 
-        (item) =>
+        (item: any) =>
 
           item.deliveredAt &&
 
@@ -274,8 +296,8 @@ export async function GET(
       todayDeliveries.reduce(
 
         (
-          total,
-          item
+          total: number,
+          item: any
         ) =>
 
           total +
@@ -324,7 +346,7 @@ export async function GET(
     const weeklyEarnings =
       deliveries
         .filter(
-          (item) =>
+          (item: any) =>
 
             item.deliveredAt &&
 
@@ -334,8 +356,8 @@ export async function GET(
         )
         .reduce(
           (
-            total,
-            item
+            total: number,
+            item: any
           ) =>
 
             total +
@@ -360,7 +382,7 @@ export async function GET(
     const monthlyEarnings =
       deliveries
         .filter(
-          (item) => {
+          (item: any) => {
 
             if (
               !item.deliveredAt
@@ -385,8 +407,8 @@ export async function GET(
         )
         .reduce(
           (
-            total,
-            item
+            total: number,
+            item: any
           ) =>
 
             total +
@@ -399,6 +421,110 @@ export async function GET(
         )
 
     //////////////////////////////////////////////////////
+    // FORMATTED DELIVERIES
+    //////////////////////////////////////////////////////
+
+    const formattedDeliveries =
+      deliveries.map(
+        (item: any) => ({
+
+          id:
+            item.id,
+
+          trackingId:
+            item.trackingId,
+
+          fromCity:
+            item.fromCity,
+
+          toCity:
+            item.toCity,
+
+          pickupAddress:
+            item.pickupAddress,
+
+          deliveryAddress:
+            item.deliveryAddress,
+
+          vehicleType:
+            item.vehicleType,
+
+          packageType:
+            item.packageType,
+
+          distance:
+            item.distance,
+
+          weight:
+            item.weight,
+
+          price:
+            item.price,
+
+          driverEarning:
+            item.driverEarning || 0,
+
+          status:
+            item.status,
+
+          deliveredAt:
+            item.deliveredAt,
+
+          createdAt:
+            item.createdAt,
+
+          //////////////////////////////////////////////////////
+          // CUSTOMER
+          //////////////////////////////////////////////////////
+
+          customer:
+            item.user
+              ? {
+
+                  id:
+                    item.user.id,
+
+                  name:
+                    item.user.name,
+
+                  email:
+                    item.user.email,
+
+                  phone:
+                    item.user.phone,
+                }
+
+              : null,
+
+          //////////////////////////////////////////////////////
+          // PAYMENT
+          //////////////////////////////////////////////////////
+
+          payment:
+            item.payment
+              ? {
+
+                  id:
+                    item.payment.id,
+
+                  amount:
+                    item.payment.amount,
+
+                  status:
+                    item.payment.status,
+
+                  paymentMethod:
+                    item.payment.paymentMethod,
+
+                  transactionId:
+                    item.payment.transactionId,
+                }
+
+              : null,
+        })
+      )
+
+    //////////////////////////////////////////////////////
     // RESPONSE
     //////////////////////////////////////////////////////
 
@@ -406,19 +532,23 @@ export async function GET(
 
       success: true,
 
-      totalEarnings,
+      stats: {
 
-      todayEarnings,
+        totalEarnings,
 
-      weeklyEarnings,
+        todayEarnings,
 
-      monthlyEarnings,
+        weeklyEarnings,
 
-      completedDeliveries,
+        monthlyEarnings,
 
-      averageEarnings,
+        completedDeliveries,
 
-      deliveries,
+        averageEarnings,
+      },
+
+      deliveries:
+        formattedDeliveries,
     })
 
   } catch (error) {

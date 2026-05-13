@@ -51,9 +51,10 @@ export default function BookingDetailsPage() {
           `/api/user/bookings/${params.id}`
         )
 
-      setBooking(
-        res.data
-      )
+   setBooking(
+  res.data.booking ||
+  null
+)
 
     } catch (error) {
 

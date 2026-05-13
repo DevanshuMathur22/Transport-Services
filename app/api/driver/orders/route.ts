@@ -236,21 +236,25 @@ export async function GET(
 
           tracking: {
 
-            orderBy: {
+            orderBy: [
 
-              createdAt:
-                "desc",
-            },
+              {
+                createdAt:
+                  "desc",
+              },
+            ],
 
             take: 1,
           },
         },
 
-        orderBy: {
+        orderBy: [
 
-          updatedAt:
-            "desc",
-        },
+          {
+            updatedAt:
+              "desc",
+          },
+        ],
       })
 
     //////////////////////////////////////////////////////
@@ -262,7 +266,7 @@ export async function GET(
 
     const activeOrders =
       orders.filter(
-        (item) =>
+        (item: any) =>
 
           item.status ===
           "accepted" ||
@@ -276,10 +280,146 @@ export async function GET(
 
     const completedOrders =
       orders.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "delivered"
       ).length
+
+    //////////////////////////////////////////////////////
+    // FORMATTED ORDERS
+    //////////////////////////////////////////////////////
+
+    const formattedOrders =
+      orders.map(
+        (item: any) => ({
+
+          id:
+            item.id,
+
+          trackingId:
+            item.trackingId,
+
+          fromCity:
+            item.fromCity,
+
+          toCity:
+            item.toCity,
+
+          pickupAddress:
+            item.pickupAddress,
+
+          deliveryAddress:
+            item.deliveryAddress,
+
+          vehicleType:
+            item.vehicleType,
+
+          packageType:
+            item.packageType,
+
+          weight:
+            item.weight,
+
+          distance:
+            item.distance,
+
+          price:
+            item.price,
+
+          driverEarning:
+            item.driverEarning,
+
+          estimatedTime:
+            item.estimatedTime,
+
+          pickupDate:
+            item.pickupDate,
+
+          pickupTime:
+            item.pickupTime,
+
+          status:
+            item.status,
+
+          createdAt:
+            item.createdAt,
+
+          updatedAt:
+            item.updatedAt,
+
+          //////////////////////////////////////////////////////
+          // CUSTOMER
+          //////////////////////////////////////////////////////
+
+          customer:
+            item.user
+              ? {
+
+                  id:
+                    item.user.id,
+
+                  name:
+                    item.user.name,
+
+                  email:
+                    item.user.email,
+
+                  phone:
+                    item.user.phone,
+                }
+
+              : null,
+
+          //////////////////////////////////////////////////////
+          // PAYMENT
+          //////////////////////////////////////////////////////
+
+          payment:
+            item.payment
+              ? {
+
+                  id:
+                    item.payment.id,
+
+                  amount:
+                    item.payment.amount,
+
+                  status:
+                    item.payment.status,
+
+                  paymentMethod:
+                    item.payment.paymentMethod,
+
+                  transactionId:
+                    item.payment.transactionId,
+                }
+
+              : null,
+
+          //////////////////////////////////////////////////////
+          // LATEST TRACKING
+          //////////////////////////////////////////////////////
+
+          latestTracking:
+            item.tracking[0]
+              ? {
+
+                  id:
+                    item.tracking[0].id,
+
+                  message:
+                    item.tracking[0].message,
+
+                  location:
+                    item.tracking[0].location,
+
+                  createdAt:
+                    item.tracking[0].createdAt,
+                }
+
+              : null,
+        })
+      )
 
     //////////////////////////////////////////////////////
     // RESPONSE
@@ -298,7 +438,8 @@ export async function GET(
         completedOrders,
       },
 
-      orders,
+      orders:
+        formattedOrders,
     })
 
   } catch (error) {

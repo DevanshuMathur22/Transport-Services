@@ -51,9 +51,13 @@ export default function BookingsPage() {
 
           )
 
-        setBookings(
-          res.data
-        )
+       setBookings(
+  Array.isArray(
+    res.data.bookings
+  )
+    ? res.data.bookings
+    : []
+)
       } catch (error) {
         console.log(error)
       } finally {

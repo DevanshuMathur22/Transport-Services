@@ -216,19 +216,15 @@ export async function GET(
     // TOTAL SPENT
     //////////////////////////////////////////////////////
 
-    const totalSpent =
-      payments.reduce(
-
-        (
-          acc,
-          item
-        ) =>
-
-          acc +
-          item.amount,
-
-        0
-      )
+   const totalSpent = payments.reduce(
+  (
+    acc: number,
+    item: {
+      amount: number
+    }
+  ) => acc + item.amount,
+  0
+)
 
     //////////////////////////////////////////////////////
     // RESPONSE

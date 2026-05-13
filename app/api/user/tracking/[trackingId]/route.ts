@@ -117,6 +117,8 @@ export async function GET(
           id: true,
 
           role: true,
+
+          isBlocked: true,
         },
       })
 
@@ -137,6 +139,25 @@ export async function GET(
         {
           error:
             "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED USER
+    //////////////////////////////////////////////////////
+
+    if (
+      user.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Account blocked",
         },
         {
           status: 403,
@@ -303,43 +324,36 @@ export async function GET(
       // DRIVER
       //////////////////////////////////////////////////////
 
-      driver: {
+      driver:
+        booking.driver
+          ? {
 
-        name:
-          booking.driver
-            ?.name ||
-          "Not Assigned",
+              id:
+                booking.driver.id,
 
-        phone:
-          booking.driver
-            ?.phone ||
-          "N/A",
+              name:
+                booking.driver.name,
 
-        vehicleType:
-          booking.driver
-            ?.vehicleType ||
-          "N/A",
+              phone:
+                booking.driver.phone,
 
-        vehicleNumber:
-          booking.driver
-            ?.vehicleNumber ||
-          "N/A",
+              vehicleType:
+                booking.driver.vehicleType,
 
-        latitude:
-          booking.driver
-            ?.latitude ||
-          null,
+              vehicleNumber:
+                booking.driver.vehicleNumber,
 
-        longitude:
-          booking.driver
-            ?.longitude ||
-          null,
+              latitude:
+                booking.driver.latitude,
 
-        isOnline:
-          booking.driver
-            ?.isOnline ||
-          false,
-      },
+              longitude:
+                booking.driver.longitude,
+
+              isOnline:
+                booking.driver.isOnline,
+            }
+
+          : null,
 
       //////////////////////////////////////////////////////
       // PAYMENT
@@ -365,6 +379,7 @@ export async function GET(
                 booking.payment
                   .transactionId,
             }
+
           : null,
 
       //////////////////////////////////////////////////////
@@ -373,7 +388,9 @@ export async function GET(
 
       timeline:
         booking.tracking.map(
-          (item) => ({
+          (
+            item: any
+          ) => ({
 
             id:
               item.id,

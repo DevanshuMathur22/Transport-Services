@@ -105,14 +105,6 @@ export async function GET(
 
           id: true,
 
-          role: true,
-
-          isBlocked: true,
-
-          isDriverApproved: true,
-
-          isOnline: true,
-
           name: true,
 
           email: true,
@@ -121,19 +113,15 @@ export async function GET(
 
           city: true,
 
+          role: true,
+
+          isBlocked: true,
+
+          isDriverApproved: true,
+
           vehicleType: true,
 
           vehicleNumber: true,
-
-          licenseUrl: true,
-
-          rcUrl: true,
-
-          aadhaarUrl: true,
-
-          insuranceUrl: true,
-
-          createdAt: true,
         },
       })
 
@@ -181,6 +169,25 @@ export async function GET(
     }
 
     //////////////////////////////////////////////////////
+    // DRIVER APPROVAL
+    //////////////////////////////////////////////////////
+
+    if (
+      !driver.isDriverApproved
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver not approved",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
     // RESPONSE
     //////////////////////////////////////////////////////
 
@@ -188,7 +195,26 @@ export async function GET(
 
       success: true,
 
-      driver,
+      id:
+        driver.id,
+
+      name:
+        driver.name,
+
+      email:
+        driver.email,
+
+      phone:
+        driver.phone,
+
+      city:
+        driver.city,
+
+      vehicleType:
+        driver.vehicleType,
+
+      vehicleNumber:
+        driver.vehicleNumber,
     })
 
   } catch (error) {
@@ -280,13 +306,6 @@ export async function PUT(
       }
 
     //////////////////////////////////////////////////////
-    // BODY
-    //////////////////////////////////////////////////////
-
-    const body =
-      await req.json()
-
-    //////////////////////////////////////////////////////
     // DRIVER
     //////////////////////////////////////////////////////
 
@@ -306,7 +325,7 @@ export async function PUT(
 
           isBlocked: true,
 
-          name: true,
+          isDriverApproved: true,
         },
       })
 
@@ -354,7 +373,62 @@ export async function PUT(
     }
 
     //////////////////////////////////////////////////////
-    // UPDATE DRIVER
+    // DRIVER APPROVAL
+    //////////////////////////////////////////////////////
+
+    if (
+      !driver.isDriverApproved
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Driver not approved",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BODY
+    //////////////////////////////////////////////////////
+
+    const body =
+      await req.json()
+
+    //////////////////////////////////////////////////////
+    // VALIDATION
+    //////////////////////////////////////////////////////
+
+    if (
+
+      !body.name ||
+
+      !body.phone ||
+
+      !body.city ||
+
+      !body.vehicleType ||
+
+      !body.vehicleNumber
+
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "All fields are required",
+        },
+        {
+          status: 400,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // UPDATE PROFILE
     //////////////////////////////////////////////////////
 
     const updatedDriver =
@@ -362,49 +436,32 @@ export async function PUT(
 
         where: {
           id:
-            driver.id,
+            decoded.id,
         },
 
         data: {
 
           name:
-            body.name || "",
+            body.name.trim(),
 
           phone:
-            body.phone || "",
+            body.phone.trim(),
 
           city:
-            body.city || "",
+            body.city.trim(),
 
           vehicleType:
-            body.vehicleType || "",
+            body.vehicleType.trim(),
 
           vehicleNumber:
-            body.vehicleNumber || "",
-        },
-
-        select: {
-
-          id: true,
-
-          name: true,
-
-          email: true,
-
-          phone: true,
-
-          city: true,
-
-          vehicleType: true,
-
-          vehicleNumber: true,
-
-          updatedAt: true,
+            body.vehicleNumber
+              .trim()
+              .toUpperCase(),
         },
       })
 
     //////////////////////////////////////////////////////
-    // DRIVER NOTIFICATION
+    // NOTIFICATION
     //////////////////////////////////////////////////////
 
     await prisma.notification.create({
@@ -412,61 +469,18 @@ export async function PUT(
       data: {
 
         userId:
-          driver.id,
+          decoded.id,
 
         title:
           "Profile Updated",
 
         message:
-          "Your driver profile was updated successfully.",
+          "Driver profile updated successfully.",
 
         type:
-          "driver",
+          "profile",
       },
     })
-
-    //////////////////////////////////////////////////////
-    // ADMIN
-    //////////////////////////////////////////////////////
-
-    const admin =
-      await prisma.user.findFirst({
-
-        where: {
-          role:
-            "admin",
-        },
-
-        select: {
-
-          id: true,
-        },
-      })
-
-    //////////////////////////////////////////////////////
-    // ADMIN NOTIFICATION
-    //////////////////////////////////////////////////////
-
-    if (admin) {
-
-      await prisma.notification.create({
-
-        data: {
-
-          userId:
-            admin.id,
-
-          title:
-            "Driver Profile Updated",
-
-          message:
-            `${updatedDriver.name} updated driver profile details.`,
-
-          type:
-            "admin",
-        },
-      })
-    }
 
     //////////////////////////////////////////////////////
     // RESPONSE
@@ -475,6 +489,9 @@ export async function PUT(
     return NextResponse.json({
 
       success: true,
+
+      message:
+        "Profile updated successfully",
 
       driver:
         updatedDriver,

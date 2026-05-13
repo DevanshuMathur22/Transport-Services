@@ -117,6 +117,11 @@ export async function GET(
         },
       })
 
+    console.log({
+      decoded,
+      driver,
+    })
+
     //////////////////////////////////////////////////////
     // CHECK DRIVER
     //////////////////////////////////////////////////////
@@ -183,40 +188,39 @@ export async function GET(
     // AVAILABLE ORDERS
     //////////////////////////////////////////////////////
 
-    const availableOrders =
-      await prisma.booking.findMany({
+   const availableOrders =
+  await prisma.booking.findMany({
 
-        where: {
+    where: {
 
-          status:
-            "pending",
+      status:
+        "pending",
 
-          driverId:
-            null,
+      driverId:
+        null,
+    },
+
+    orderBy: {
+
+      createdAt:
+        "desc",
+    },
+
+    take: 5,
+
+    include: {
+
+      user: {
+
+        select: {
+
+          name: true,
+
+          phone: true,
         },
-
-        orderBy: {
-
-          createdAt:
-            "desc",
-        },
-
-        take: 5,
-
-        include: {
-
-          user: {
-
-            select: {
-
-              name: true,
-
-              phone: true,
-            },
-          },
-        },
-      })
-
+      },
+    },
+  })
     //////////////////////////////////////////////////////
     // ACTIVE DELIVERIES
     //////////////////////////////////////////////////////
@@ -294,8 +298,9 @@ export async function GET(
       deliveredBookings.reduce(
 
         (
-          total,
-          item
+          total: number,
+
+          item: any
         ) =>
 
           total +
@@ -323,7 +328,7 @@ export async function GET(
 
     const todayDeliveries =
       deliveredBookings.filter(
-        (item) =>
+        (item: any) =>
 
           item.deliveredAt &&
 
@@ -340,8 +345,9 @@ export async function GET(
       todayDeliveries.reduce(
 
         (
-          total,
-          item
+          total: number,
+
+          item: any
         ) =>
 
           total +
@@ -422,7 +428,7 @@ export async function GET(
 
     const activities =
       recentTracking.map(
-        (item) => ({
+        (item: any) => ({
 
           message:
             item.message,
@@ -454,23 +460,20 @@ export async function GET(
           driver.isOnline,
       },
 
-      stats: {
+      pendingOrders:
+        availableOrders.length,
 
-        pendingOrders:
-          availableOrders.length,
+      activeDeliveries:
+        activeDeliveries.length,
 
-        activeDeliveries:
-          activeDeliveries.length,
+      completedDeliveries:
+        totalDeliveries,
 
-        completedDeliveries:
-          totalDeliveries,
+      successRate,
 
-        successRate,
+      earnings,
 
-        earnings,
-
-        todayEarnings,
-      },
+      todayEarnings,
 
       availableOrders,
 

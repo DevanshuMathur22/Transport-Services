@@ -245,7 +245,7 @@ export async function GET(
 
     const formattedBookings =
       bookings.map(
-        (booking) => ({
+        (booking: any) => ({
 
           id:
             booking.id,
