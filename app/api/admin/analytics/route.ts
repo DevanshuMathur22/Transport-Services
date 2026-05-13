@@ -7,7 +7,8 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma } from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
 // FORCE DYNAMIC
@@ -99,6 +100,15 @@ export async function GET(
           id:
             decoded.id,
         },
+
+        select: {
+
+          id: true,
+
+          role: true,
+
+          isBlocked: true,
+        },
       })
 
     //////////////////////////////////////////////////////
@@ -110,7 +120,7 @@ export async function GET(
       !admin ||
 
       admin.role !==
-        "admin"
+      "admin"
 
     ) {
 
@@ -118,6 +128,25 @@ export async function GET(
         {
           error:
             "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED ADMIN
+    //////////////////////////////////////////////////////
+
+    if (
+      admin.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Admin account blocked",
         },
         {
           status: 403,
@@ -151,6 +180,10 @@ export async function GET(
         },
       })
 
+    //////////////////////////////////////////////////////
+    // ONLINE DRIVERS
+    //////////////////////////////////////////////////////
+
     const onlineDrivers =
       await prisma.user.count({
 
@@ -180,28 +213,28 @@ export async function GET(
 
     const pendingBookings =
       bookings.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "pending"
       ).length
 
     const inTransitBookings =
       bookings.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "in_transit"
       ).length
 
     const deliveredBookings =
       bookings.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "delivered"
       ).length
 
     const cancelledBookings =
       bookings.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "cancelled"
       ).length
@@ -215,8 +248,10 @@ export async function GET(
       totalBookings > 0
 
         ? Math.round(
+
             (
               deliveredBookings /
+
               totalBookings
             ) * 100
           )
@@ -245,18 +280,23 @@ export async function GET(
       payments
 
         .filter(
-          (item) =>
+          (item: any) =>
             item.status ===
             "paid"
         )
 
         .reduce(
+
           (
-            acc,
-            item
+            acc: number,
+
+            item: any
           ) =>
+
             acc +
+
             item.amount,
+
           0
         )
 
@@ -266,28 +306,28 @@ export async function GET(
 
     const paidPayments =
       payments.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "paid"
       ).length
 
     const pendingPayments =
       payments.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "pending"
       ).length
 
     const refundedPayments =
       payments.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "refunded"
       ).length
 
     const failedPayments =
       payments.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "failed"
       ).length
@@ -303,7 +343,7 @@ export async function GET(
       > = {}
 
     bookings.forEach(
-      (item) => {
+      (item: any) => {
 
         cityMap[
           item.toCity
@@ -328,7 +368,9 @@ export async function GET(
             city,
             count,
           ]) => ({
+
             city,
+
             count,
           })
         )
@@ -338,8 +380,14 @@ export async function GET(
             a,
             b
           ) =>
-            b.count -
-            a.count
+
+            Number(
+              b.count
+            ) -
+
+            Number(
+              a.count
+            )
         )
 
         .slice(0, 5)
@@ -355,7 +403,7 @@ export async function GET(
       > = {}
 
     bookings.forEach(
-      (item) => {
+      (item: any) => {
 
         const key =
           String(
@@ -381,7 +429,9 @@ export async function GET(
             vehicleType,
             count,
           ]) => ({
+
             vehicleType,
+
             count,
           })
         )
@@ -391,8 +441,14 @@ export async function GET(
             a,
             b
           ) =>
-            b.count -
-            a.count
+
+            Number(
+              b.count
+            ) -
+
+            Number(
+              a.count
+            )
         )
 
     //////////////////////////////////////////////////////

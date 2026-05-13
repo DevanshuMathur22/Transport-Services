@@ -7,7 +7,8 @@ import {
 
 import jwt from "jsonwebtoken"
 
-import { prisma }from "@/lib/prisma"
+import { prisma }
+from "@/lib/prisma"
 
 //////////////////////////////////////////////////////
 // FORCE DYNAMIC
@@ -105,6 +106,8 @@ export async function GET(
           id: true,
 
           role: true,
+
+          isBlocked: true,
         },
       })
 
@@ -117,7 +120,7 @@ export async function GET(
       !admin ||
 
       admin.role !==
-        "admin"
+      "admin"
 
     ) {
 
@@ -125,6 +128,25 @@ export async function GET(
         {
           error:
             "Access denied",
+        },
+        {
+          status: 403,
+        }
+      )
+    }
+
+    //////////////////////////////////////////////////////
+    // BLOCKED ADMIN
+    //////////////////////////////////////////////////////
+
+    if (
+      admin.isBlocked
+    ) {
+
+      return NextResponse.json(
+        {
+          error:
+            "Admin account blocked",
         },
         {
           status: 403,
@@ -194,17 +216,20 @@ export async function GET(
     const totalRevenue =
       payments
         .filter(
-          (item) =>
+          (item: any) =>
             item.status ===
             "paid"
         )
         .reduce(
           (
-            acc,
-            item
+            acc: number,
+            item: any
           ) =>
+
             acc +
+
             item.amount,
+
           0
         )
 
@@ -214,7 +239,7 @@ export async function GET(
 
     const successful =
       payments.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "paid"
       ).length
@@ -225,7 +250,7 @@ export async function GET(
 
     const pending =
       payments.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "pending"
       ).length
@@ -236,7 +261,7 @@ export async function GET(
 
     const refunded =
       payments.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "refunded"
       ).length
@@ -247,7 +272,7 @@ export async function GET(
 
     const failed =
       payments.filter(
-        (item) =>
+        (item: any) =>
           item.status ===
           "failed"
       ).length
@@ -257,6 +282,8 @@ export async function GET(
     //////////////////////////////////////////////////////
 
     return NextResponse.json({
+
+      success: true,
 
       payments,
 
